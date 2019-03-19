@@ -24,7 +24,8 @@ module top(output r_CDStatus);
             if (new_phase == PHASE_BUS_FREE)
                 begin
                     $display ("PHASE_BUS_FREE");
-                    r_CDStatus = r_CDStatus | BUSY_BIT | MSG_BIT | CD_BIT | IO_BIT | REQ_BIT;
+                    // This needs to clear the bits, not enable them
+                    r_CDStatus = r_CDStatus & ~BUSY_BIT & ~MSG_BIT & ~CD_BIT & ~IO_BIT & ~REQ_BIT;
                     r_CurrentPhase = PHASE_BUS_FREE;
                 end
             if (new_phase == PHASE_DATA_IN)
@@ -63,17 +64,17 @@ module top(output r_CDStatus);
 
     initial 
         begin
-            r_CDStatus = 0;
+            r_CDStatus = 8'hFF;
             log_cdstatus_register;
             $display("testing change_phase");
             change_phase(PHASE_BUS_FREE);
-            r_CDStatus = 0;
+            r_CDStatus = 8'h00;
             change_phase(PHASE_DATA_IN);
-            r_CDStatus = 0;
+            r_CDStatus = 8'h00;
             change_phase(PHASE_STATUS);
-            r_CDStatus = 0;
+            r_CDStatus = 8'h00;
             change_phase(PHASE_MESSAGE_IN);
-            r_CDStatus = 0;
+            r_CDStatus = 8'h00;
             change_phase(PHASE_COMMAND);
             $finish; 
         end
