@@ -1,12 +1,13 @@
 module top(output r_CDStatus);
     // These will eventually be external registers
-    reg [7:0] r_CDStatus;
-    reg [7:0] r_CDIntMask;
+    reg [7:0] r_CDStatus = 0;
+    //reg [7:0] r_CDIntMask;
     
     // Internal state
-    reg [7:0] CurrentPhase;
-    reg [0:0] CDLastReset;
-    reg [0:0] CDStatusSent;
+    reg [7:0] CurrentPhase = 0;
+    reg [0:0] CDLastReset = 0;
+    reg [0:0] CDStatusSent = 0;
+    reg [0:0] CDMessageSent = 0;
 
     localparam PHASE_BUS_FREE    = 8'b00000000;
     localparam PHASE_COMMAND     = 8'b00000001;
@@ -155,6 +156,38 @@ module top(output r_CDStatus);
                             // @todo message_pending message goes on the buss
                             //cd_bus.DB = cd.message_pending;
                             ChangePhase(PHASE_MESSAGE_IN);
+                        end
+                    end
+                    PHASE_DATA_IN: begin
+                        $display ("PHASE_DATA_IN TBC");
+                        // if (!REQ_signal && !ACK_signal) {
+                        // if (din.in_count == 0) // aaand we're done!
+                        // {
+                        //     CDIRQCallback(0x8000 | PCECD_Drive_IRQ_DATA_TRANSFER_READY);
+                        //     if (cd.data_transfer_done) {
+                        //         SendStatusAndMessage(STATUS_GOOD, 0x00);
+                        //         cd.data_transfer_done = FALSE;
+                        //         CDIRQCallback(PCECD_Drive_IRQ_DATA_TRANSFER_DONE);
+                        //     }
+                        // } else {
+                        //     cd_bus.DB = din.ReadByte();
+                        //     SetREQ(TRUE);
+                        //}
+                        // }
+                        // if (REQ_signal && ACK_signal) {
+                        //puts("REQ and ACK true");
+                        //SetREQ(FALSE);
+                        // clear_cd_reg_bits(0x00, REQ_BIT);
+                    end
+                    PHASE_MESSAGE_IN: begin
+                        if (REQ_signal() && ACK_signal()) begin
+                            SetREQ(false);
+                            r_CDStatus = r_CDStatus & ~REQ_BIT;
+                            CDMessageSent = true;
+                        end
+                        if (!REQ_signal() && !ACK_signal() && CDMessageSent) begin
+                            CDMessageSent = false;
+                            ChangePhase(PHASE_BUS_FREE);
                         end
                     end
                 endcase
