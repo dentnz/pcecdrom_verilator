@@ -1,6 +1,7 @@
-module top(output r_CDStatus);
+module top(input i_clk, output r_CDStatus, output o_GOTCDCOMMAND);
     // These will eventually be external registers
     reg [7:0] r_CDStatus = 0;
+    reg [0:0] o_GOTCDCOMMAND = 0;
     //reg [7:0] r_CDIntMask;
     
     // Internal state
@@ -142,7 +143,10 @@ module top(output r_CDStatus);
                         // if(!REQ_signal && !ACK_signal && cd.command_buffer_pos)	// Received at least one byte, what should we do?
                         if (!REQ_signal() && !ACK_signal()) begin
                             // We got a command!!!!!!!
-                            // @todo handle the command
+                            $display ("We got a command!");
+                            o_GOTCDCOMMAND = 1;
+                            $finish;
+                            // @todo handle the command... for now, expose the fact we got to command phase
                         end
                     end
                     PHASE_STATUS: begin
@@ -195,11 +199,7 @@ module top(output r_CDStatus);
         end
     endtask
 
-    initial begin
-        CurrentPhase = 0;
-        ChangePhase(PHASE_BUS_FREE);
+    always @ (posedge i_clk) begin
         PCECD_Drive_Run;
-        $finish; 
     end
-
 endmodule

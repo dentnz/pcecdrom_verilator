@@ -10,11 +10,20 @@ int main(int argc, char **argv, char **env) {
     Vtop* top = new Vtop;
 
     // Simulation time...
+    
     while (!Verilated::gotFinish()) {
-        // Evaluate the model
+        char input;
+        cin>>input;
+        cout << 't' << 'i' << 'c' << 'k' << endl;
+        // Toggle the clock
+        top->i_clk = 0;
+        top->eval();
+        top->i_clk = 1;
+        top->eval();
+        top->i_clk = 0;
         top->eval();
         // Read a output
-        //cout << top->w_CDStatus << endl;
+        //cout << top->r_CDStatus << endl;
     }
 
     // Done simulating

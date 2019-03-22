@@ -16,6 +16,19 @@ docker run --rm -v $(pwd):/data rweda/verilator "cd /data; verilator -Wall --cc 
 ```
 ./obj_dir/Vtop
 ```
+From here you can type a character and press enter to advance the clock:
+```
+. <character and enter>
+tick
+PCE_CD: RunCDRead - TBC
+PCE_CD: RunCDDA - TBC
+PHASE_COMMAND
+.
+tick
+PCE_CD: RunCDRead - TBC
+PCE_CD: RunCDDA - TBC
+...
+```
 
 ## Plan
 
