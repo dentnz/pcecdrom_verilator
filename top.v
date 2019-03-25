@@ -1,19 +1,30 @@
 module top(
-    input i_clk, 
-    inout r_CDStatus,       // 0x00 
-    inout r_CDComand,       // 0x01
-    inout r_CDIntMask,      // 0x02
-    inout r_CDBRAMLock,     // 0x03
+    input i_clk,
+    // Allows for input from the PC Engine itself
+    input [7:0] i_CDStatus,
+    input [7:0] i_CDCommand,
+    input [7:0] i_CDIntMask,
+    input [7:0] i_CDReset,
+    
+    // Read internally and externally
+    output r_CDStatus,       // 0x00 
+    output r_CDComand,       // 0x01
+    output r_CDIntMask,      // 0x02
+    output r_CDBRAMLock,     // 0x03
+    output r_CDReset,        // 0x04
     output o_GOTCDCOMMAND
 );
-    // These will eventually be external registers
     reg [7:0] r_CDStatus = 0;
     reg [7:0] r_CDCommand = 0;
     reg [7:0] r_CDBRAMLock = 0;
     // Debug
     reg [0:0] o_GOTCDCOMMAND = 0;
     //reg [7:0] r_CDIntMask;
-    
+    localparam [7:0] i_CDStatus_last = 0;
+    localparam [7:0] i_CDCommand_last = 0;
+    localparam [7:0] i_CDIntMask_last = 0;
+    localparam [7:0] i_CDReset_last = 0;
+
     // Internal state
     reg [7:0] CurrentPhase = 0;
     // I believe this is the command bus
@@ -78,7 +89,7 @@ module top(
     task PCECD_Drive_SetSEL; input [0:0] bitValue; SetkingSEL(bitValue); endtask
 
     // Command bus getter/setters?
-    function PCECD_Drive_GetDB; PCECD_Drive_GetDB = CDBusDb; endfunction
+    //function PCECD_Drive_GetDB; PCECD_Drive_GetDB = CDBusDb; endfunction
     task PCECD_Drive_SetDB; input [7:0] dbValue; CDBusDb = dbValue; endtask
 
     task PCECD_Drive_Power;
@@ -253,8 +264,48 @@ module top(
         // @todo Fadeouts/ins
     endtask
 
+    // Writes from the PC Engine only, I guess...
+    task PCECD_Write;
+        // $1800
+        if (i_CDStatus != i_CDStatus_last) begin
+            $display("Write 1800");
+            PCECD_Drive_SetSEL(1);
+            PCECD_Run;
+            PCECD_Drive_SetSEL(0);
+            PCECD_Run;
+            r_CDBRAMLock &= ~(8'h20 | 8'h40);
+            i_CDStatus_last = i_CDStatus;
+            // @todo work out how this is done...
+            //update_irq_state();
+        // $1801
+        end else if (i_CDCommand != i_CDCommand_last) begin
+            $display("Command Received");
+            r_CDCommand = i_CDCommand;
+            PCECD_Run;
+            i_CDCommand_last = i_CDCommand;
+        // $1802
+        end else if (i_CDIntMask != i_CDIntMask_last) begin
+            $display("Write 1802");
+            PCECD_Drive_SetACK(i_CDIntMask & 8'h80);
+            PCECD_Run;
+            r_CDIntMask = i_CDIntMask;
+            i_CDIntMask_last = i_CDIntMask;
+        // $1804
+        end else if (i_CDReset != i_CDReset_last) begin
+            $display("Write 1804");
+            PCECD_Drive_SetRST(i_CDReset & 8'h2);
+            PCECD_Run;
+            if(i_CDReset & 8'h2) begin
+                r_CDBRAMLock &= ~8'h70;
+                //update_irq_state();
+            end
+            r_CDReset = i_CDReset;
+            i_CDReset_last = i_CDReset;
+        end
+    endtask
+
     always @ (posedge i_clk) begin
-        PCECD_Run;
+        PCECD_Write;
     end
 
     initial begin
