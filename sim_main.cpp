@@ -7,7 +7,7 @@
 // Here we can do specific things on certain clock ticks
 void handlePositiveEdgeClock(int tick, Vtop* top) {
     // This could be something smarter, but for now... we only care about a few clock cycles
-    if (tick == 1) {
+    if (tick == 5) {
         // Pcetech.txt
         // $1804 - CD reset
         // Bit 2 is used to reset the CD hardware. The CD_RESET function sets bit 2,
@@ -16,23 +16,30 @@ void handlePositiveEdgeClock(int tick, Vtop* top) {
         top->i_CDReset |=  0x2;
     }
 
-    if (tick == 4) {
+    if (tick == 8) {
         printf("PCE: Reset - bit 2 low\n");
         // See tick 1
         top->i_CDReset = 0;
     }
 
-    if (tick == 4) {
+    if (tick == 9) {
         printf("PCE: setting status 81\n");
         top->i_CDStatus = 0x81;
     }
-    if (tick == 5) {
+
+    if (tick == 10) {
         printf("PCE: Sending command 81\n");
         top->i_CDCommand = 0x81;
     }
-    if (tick == 6) {
-        printf("PCE: Sending command 00\n");
-        top->i_CDCommand = 0x00;
+
+    // if (tick == 11) {
+    //     printf("PCE: Sending command 00\n");
+    //     top->i_CDCommand = 0x00;
+    // }
+
+    if (tick == 12) {
+        printf("PCE: Sending ACK... who does the ACK?!\n");
+        top->i_CDIntMask = 0x80;
     }
 }
 
