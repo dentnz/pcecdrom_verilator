@@ -8,7 +8,7 @@ module top(
     
     // Read internally and externally
     output [7:0] r_CDStatus,       // 0x00 
-    output [7:0] r_CDCommand,       // 0x01
+    output [7:0] r_CDCommand,      // 0x01
     output [7:0] r_CDIntMask,      // 0x02
     output [7:0] r_CDBRAMLock,     // 0x03
     output [7:0] r_CDReset,        // 0x04
@@ -17,29 +17,29 @@ module top(
     output o_GOTCDCOMMAND,
     output [7:0] CurrentPhase
 );
-    reg [7:0] r_CDStatus = 0;
-    reg [7:0] r_CDCommand = 0;
+    reg [7:0] r_CDStatus   = 0;
+    reg [7:0] r_CDCommand  = 0;
     reg [7:0] r_CDBRAMLock = 0;
     // Debug
     reg [0:0] o_GOTCDCOMMAND = 0;
     //reg [7:0] r_CDIntMask;
-    localparam [7:0] i_CDStatus_last = 0;
-    localparam [7:0] i_CDCommand_last = 0;
-    localparam [7:0] i_CDIntMask_last = 0;
-    localparam [7:0] i_CDReset_last = 0;
+    reg [7:0] i_CDStatus_last  = 0;
+    reg [7:0] i_CDCommand_last = 0;
+    reg [7:0] i_CDIntMask_last = 0;
+    reg [7:0] i_CDReset_last   = 0;
 
     // Internal state
-    reg [7:0] CurrentPhase = 0;
+    reg [7:0] CurrentPhase  = 0;
     // I believe this is the command bus
-    reg [7:0] CDBusDb = 0;
-    reg [0:0] CDLastReset = 0;
-    reg [0:0] CDStatusSent = 0;
+    //reg [7:0] CDBusDb       = 0;
+    //reg [0:0] CDLastReset   = 0;
+    reg [0:0] CDStatusSent  = 0;
     reg [0:0] CDMessageSent = 0;
 
-    localparam true = 1;
-    localparam false = 0;
-    localparam IRQ_8000 = 1;
-    localparam IRQ_No_8000 = 0;
+    localparam true         = 1;
+    localparam false        = 0;
+    localparam IRQ_8000     = 1;
+    localparam IRQ_No_8000  = 0;
 
     localparam PHASE_BUS_FREE    = 8'b00000000;
     localparam PHASE_COMMAND     = 8'b00000001;
@@ -60,18 +60,19 @@ module top(
     // ---x ---- cd signal
     // ---- x--- i/o signal
     localparam BUSY_BIT = 8'h80;
-    localparam REQ_BIT = 8'h40;
-    localparam MSG_BIT = 8'h20;
-    localparam CD_BIT = 8'h10;
-    localparam IO_BIT = 8'h08;
+    localparam REQ_BIT  = 8'h40;
+    localparam MSG_BIT  = 8'h20;
+    localparam CD_BIT   = 8'h10;
+    localparam IO_BIT   = 8'h08;
 
     // Signals under our(the "target") control.
-    function BSY_signal; BSY_signal = r_CDStatus[7]; endfunction
-    function REQ_signal; REQ_signal = r_CDStatus[6]; endfunction
-    function MSG_signal; MSG_signal = r_CDStatus[5]; endfunction
-    function CD_signal; CD_signal = r_CDStatus[4]; endfunction
-    function IO_signal; IO_signal = r_CDStatus[3]; endfunction
-    task SetREQ; input [0:0] bitValue; r_CDStatus[6] = bitValue; endtask
+    wire BSY_signal = r_CDStatus[7];
+    wire REQ_signal = r_CDStatus[6];
+    wire MSG_signal = r_CDStatus[5];
+    wire CD_signal  = r_CDStatus[4];
+    wire IO_signal  = r_CDStatus[3];
+
+    function SetREQ; input [0:0] bitValue; r_CDStatus[6] <= bitValue; SetREQ = 1; endfunction
 
     // Signals under the control of the initiator (not us!)
     localparam PCECD_Drive_kingRST_mask	= 16'h020;
@@ -81,137 +82,141 @@ module top(
     // Internal Signals (IOP in beetle)
     reg [15:0] cd_bus_signals;
     
-    task SetIOP; 
+    function SetIOP; 
         input [15:0] mask; 
         input [0:0] set; 
         begin
             if (set) begin
-                cd_bus_signals = cd_bus_signals | mask;
+                cd_bus_signals <= cd_bus_signals | mask;
             end else begin
-                cd_bus_signals = cd_bus_signals & ~mask; 
+                cd_bus_signals <= cd_bus_signals & ~mask; 
             end
+            SetIOP = 1;
         end
-    endtask
+    endfunction
 
-    function RST_signal; RST_signal = cd_bus_signals[5]; endfunction
-    function ACK_signal; ACK_signal = cd_bus_signals[6]; endfunction
-    function SEL_signal; SEL_signal = cd_bus_signals[8]; endfunction
+    wire RST_signal = cd_bus_signals[5];
+    wire ACK_signal = cd_bus_signals[6];
+    wire SEL_signal = cd_bus_signals[8];
 
-    task SetkingRST; input [0:0] set; SetIOP(PCECD_Drive_kingRST_mask, set); endtask
-    task PCECD_Drive_SetRST; input [0:0] value; SetkingRST(value); endtask
-    task SetkingACK; input [0:0] set; SetIOP(PCECD_Drive_kingACK_mask, set); endtask
-    task PCECD_Drive_SetACK; input [0:0] value; SetkingACK(value); endtask
-    task SetkingSEL; input [0:0] set; SetIOP(PCECD_Drive_kingSEL_mask, set); endtask
-    task PCECD_Drive_SetSEL; input [0:0] value; SetkingSEL(value); endtask
+    function SetkingRST; input [0:0] set; SetIOP(PCECD_Drive_kingRST_mask, set); SetkingRST = 1; endfunction
+    function PCECD_Drive_SetRST; input [0:0] value; SetkingRST(value); PCECD_Drive_SetRST = 1; endfunction
+    function SetkingACK; input [0:0] set; SetIOP(PCECD_Drive_kingACK_mask, set); SetkingACK = 1; endfunction
+    function PCECD_Drive_SetACK; input [0:0] value; SetkingACK(value); PCECD_Drive_SetACK =1; endfunction
+    function SetkingSEL; input [0:0] set; SetIOP(PCECD_Drive_kingSEL_mask, set); SetkingSEL = 1; endfunction
+    function PCECD_Drive_SetSEL; input [0:0] value; SetkingSEL(value); PCECD_Drive_SetSEL = 1; endfunction
 
     // Command bus getter/setters?
     //function PCECD_Drive_GetDB; PCECD_Drive_GetDB = CDBusDb; endfunction
-    task PCECD_Drive_SetDB; input [7:0] dbValue; CDBusDb = dbValue; endtask
+    //PCECD_Drive_SetDB; input [7:0] dbValue; CDBusDb = dbValue; endtask
 
-    task PCECD_Drive_Power;
-        CurrentPhase = PHASE_BUS_FREE;
-        VirtualReset;
-    endtask;
+    function PCECD_Drive_Power;
+        CurrentPhase <= PHASE_BUS_FREE;
+        //VirtualReset;
+        PCECD_Drive_Power = 1;
+    endfunction;
 
-    task CDIRQ;
+    function CDIRQ;
         input [0:0] mode; // 8000 is used to do different things to the IRQ register by pce_fast... this replicates that
         input [2:0] irqType;
         begin
             $display("CDIRQ");
             if (mode) begin
                 if (irqType == PCECD_Drive_IRQ_DATA_TRANSFER_DONE) begin
-                    r_CDBRAMLock &= ~8'h20;
+                    r_CDBRAMLock <= r_CDBRAMLock & ~8'h20;
                 end else if (irqType == PCECD_Drive_IRQ_DATA_TRANSFER_READY) begin
-                    r_CDBRAMLock &= ~8'h40;
+                    r_CDBRAMLock <= r_CDBRAMLock & ~8'h40;
                 end
             end else if (irqType == PCECD_Drive_IRQ_DATA_TRANSFER_DONE) begin
-                r_CDBRAMLock |= 8'h20;
+                r_CDBRAMLock <= r_CDBRAMLock | 8'h20;
             end else if (irqType == PCECD_Drive_IRQ_DATA_TRANSFER_READY) begin
-                r_CDBRAMLock |= 8'h40;
+                r_CDBRAMLock <= r_CDBRAMLock | 8'h40;
             end
             // @todo update_irq_state();
+            CDIRQ = 1;
         end
-    endtask
+    endfunction
 
-    task ChangePhase;
+    function ChangePhase;
         input [7:0] new_phase;
         begin
             if (new_phase == PHASE_BUS_FREE) begin
                 $display ("PHASE_BUS_FREE");
-                r_CDStatus = r_CDStatus & ~BUSY_BIT & ~MSG_BIT & ~CD_BIT & ~IO_BIT & ~REQ_BIT;
+                r_CDStatus <= r_CDStatus & ~BUSY_BIT & ~MSG_BIT & ~CD_BIT & ~IO_BIT & ~REQ_BIT;
                 CDIRQ(IRQ_8000, PCECD_Drive_IRQ_DATA_TRANSFER_DONE);
-                CurrentPhase = PHASE_BUS_FREE;
+                CurrentPhase <= PHASE_BUS_FREE;
             end
             if (new_phase == PHASE_DATA_IN) begin
                 $display ("PHASE_DATA_IN");
-                r_CDStatus = r_CDStatus | BUSY_BIT | IO_BIT & ~MSG_BIT & ~CD_BIT & ~REQ_BIT;
-                CurrentPhase = PHASE_DATA_IN;
+                r_CDStatus <= r_CDStatus | BUSY_BIT | IO_BIT & ~MSG_BIT & ~CD_BIT & ~REQ_BIT;
+                CurrentPhase <= PHASE_DATA_IN;
             end
             if (new_phase == PHASE_STATUS) begin
                 $display ("PHASE_STATUS");
-                r_CDStatus = r_CDStatus | BUSY_BIT | CD_BIT | IO_BIT | REQ_BIT & ~MSG_BIT;
-                CurrentPhase = PHASE_STATUS;
+                r_CDStatus <= r_CDStatus | BUSY_BIT | CD_BIT | IO_BIT | REQ_BIT & ~MSG_BIT;
+                CurrentPhase <= PHASE_STATUS;
             end
             if (new_phase == PHASE_MESSAGE_IN) begin
                 $display ("PHASE_MESSAGE_IN");
-                r_CDStatus = r_CDStatus | BUSY_BIT | MSG_BIT | CD_BIT | IO_BIT | REQ_BIT;
-                CurrentPhase = PHASE_MESSAGE_IN;
+                r_CDStatus <= r_CDStatus | BUSY_BIT | MSG_BIT | CD_BIT | IO_BIT | REQ_BIT;
+                CurrentPhase <= PHASE_MESSAGE_IN;
             end
             if (new_phase == PHASE_COMMAND) begin
                 $display ("PHASE_COMMAND");
-                r_CDStatus = r_CDStatus | BUSY_BIT | CD_BIT | REQ_BIT & ~IO_BIT & ~MSG_BIT;
-                CurrentPhase = PHASE_COMMAND;
+                r_CDStatus <= r_CDStatus | BUSY_BIT | CD_BIT | REQ_BIT & ~IO_BIT & ~MSG_BIT;
+                CurrentPhase <= PHASE_COMMAND;
             end
+            ChangePhase = 1;
         end
-    endtask
+    endfunction
 
-    task VirtualReset;
-        $display("VirtualReset");
-        r_CDStatus = 0;
-        o_GOTCDCOMMAND = 0;
-        CurrentPhase = 0;
-        // We have done a reset
-        //CDLastReset = 1;
-        CDStatusSent = 0;
-        CDMessageSent = 0;
-        ChangePhase(PHASE_BUS_FREE);
-    endtask
+    // function VirtualReset;
+    //     $display("VirtualReset");
+    //     r_CDStatus = 0;
+    //     o_GOTCDCOMMAND = 0;
+    //     CurrentPhase = 0;
+    //     // We have done a reset
+    //     //CDLastReset = 1;
+    //     CDStatusSent = 0;
+    //     CDMessageSent = 0;
+    //     ChangePhase(PHASE_BUS_FREE);
+    // endtask
 
-    task RunCDRead;
-        //$display ("PCE_CD: RunCDRead - TBC");
-    endtask
+    // task RunCDRead;
+    //     //$display ("PCE_CD: RunCDRead - TBC");
+    // endtask
 
-    task RunCDDA;
-        //$display ("PCE_CD: RunCDDA - TBC");
-    endtask
+    // task RunCDDA;
+    //     //$display ("PCE_CD: RunCDDA - TBC");
+    // endtask
 
-    task PCECD_Drive_Run;
-        reg [0:0] ResetNeeded;
+    function PCECD_Drive_Run;
+        //reg [0:0] ResetNeeded;
         begin
             // @todo Might not be right to call long running things in here, also Verilog is not always procedural
-            RunCDRead;
-            RunCDDA;
-            ResetNeeded = 0;
-            if (RST_signal() && !CDLastReset) begin 
-                ResetNeeded = 1;
-            end
+            // RunCDRead;
+            // RunCDDA;
+            // ResetNeeded = 0;
+            // if (RST_signal && !CDLastReset) begin 
+            //     ResetNeeded = 1;
+            // end
 
-            CDLastReset = RST_signal();
+            // CDLastReset = RST_signal;
 
-            if (ResetNeeded) begin
-                VirtualReset;
-            end
-            else begin
+            // if (ResetNeeded) begin
+            //     VirtualReset;
+            // end
+            // else begin
                 case (CurrentPhase)
                     PHASE_BUS_FREE: begin
-                        if (SEL_signal()) begin
+                        if (SEL_signal) begin
                             ChangePhase(PHASE_COMMAND);
                         end
                     end
                     PHASE_COMMAND: begin
-                        $display ("REQ_Signal is %b", REQ_signal());
-                        $display ("ACK_Signal is %b", ACK_signal());
-                        if (REQ_signal() && ACK_signal()) begin
+                        $display ("REQ_Signal is %b", REQ_signal);
+                        $display ("ACK_Signal is %b", ACK_signal);
+                        if (REQ_signal && ACK_signal) begin
                             $display ("phase_command - setting req false");
                             // Databus is valid now
                             // @todo put DB command on the buffer?
@@ -219,22 +224,22 @@ module top(
                             SetREQ(false);
                         end
                         // if(!REQ_signal && !ACK_signal && cd.command_buffer_pos)	// Received at least one byte, what should we do?
-                        if (!REQ_signal() && !ACK_signal()) begin
+                        if (!REQ_signal && !ACK_signal) begin
                             // We got a command!!!!!!!
                             $display ("We got a command!");
-                            o_GOTCDCOMMAND = 1;
+                            o_GOTCDCOMMAND <= 1;
                             $finish;
                             // @todo handle the command... for now, expose the fact we got to command phase
                         end
                     end
                     PHASE_STATUS: begin
-                        if (REQ_signal() && ACK_signal()) begin
+                        if (REQ_signal && ACK_signal) begin
                             SetREQ(false);
-                            CDStatusSent = true;
+                            CDStatusSent <= true;
                         end
-                        if (!REQ_signal() && !ACK_signal() && CDStatusSent) begin
+                        if (!REQ_signal && !ACK_signal && CDStatusSent) begin
                             // Status sent, so get ready to send the message!
-                            CDStatusSent = false;
+                            CDStatusSent <= false;
                             // @todo message_pending message goes on the buss
                             //cd_bus.DB = cd.message_pending;
                             ChangePhase(PHASE_MESSAGE_IN);
@@ -262,75 +267,71 @@ module top(
                         // clear_cd_reg_bits(0x00, REQ_BIT);
                     end
                     PHASE_MESSAGE_IN: begin
-                        if (REQ_signal() && ACK_signal()) begin
+                        if (REQ_signal && ACK_signal) begin
                             SetREQ(false);
-                            r_CDStatus = r_CDStatus & ~REQ_BIT;
-                            CDMessageSent = true;
+                            r_CDStatus <= r_CDStatus & ~REQ_BIT;
+                            CDMessageSent <= true;
                         end
-                        if (!REQ_signal() && !ACK_signal() && CDMessageSent) begin
-                            CDMessageSent = false;
+                        if (!REQ_signal && !ACK_signal && CDMessageSent) begin
+                            CDMessageSent <= false;
                             ChangePhase(PHASE_BUS_FREE);
                         end
                     end
                 endcase
-            end
+            //end
+            PCECD_Drive_Run = 1;
         end
-    endtask
+    endfunction
 
-    task PCECD_Run;
-        // @todo ClearACKDelay?
-        PCECD_Drive_SetACK(false);
-        PCECD_Drive_Run;
-        // @todo ADPCM stuff
-        // @todo Fadeouts/ins
-    endtask
-
-    // Writes from the PC Engine only, I guess...
-    task PCECD_Write;
+    always @ (posedge i_clk) begin
         // $1800
         if (i_CDStatus != i_CDStatus_last) begin
             PCECD_Drive_SetSEL(1);
-            PCECD_Run;
+
+            PCECD_Drive_SetACK(false);
+            PCECD_Drive_Run();
+
             PCECD_Drive_SetSEL(0);
-            PCECD_Run;
-            r_CDBRAMLock &= ~(8'h20 | 8'h40);
-            i_CDStatus_last = i_CDStatus;
+
+            PCECD_Drive_SetACK(false);
+            PCECD_Drive_Run();
+
+            r_CDBRAMLock <= r_CDBRAMLock & ~(8'h20 | 8'h40);
+            i_CDStatus_last <= i_CDStatus;
             // @todo work out how this is done...
             //update_irq_state();
         // $1801
         end else if (i_CDCommand != i_CDCommand_last) begin
             $display("Write 1801 - Command Received");
-            r_CDCommand = i_CDCommand;
-            PCECD_Run;
-            i_CDCommand_last = i_CDCommand;
+            r_CDCommand <= i_CDCommand;
+            i_CDCommand_last <= i_CDCommand;
         // $1802
         end else if (i_CDIntMask != i_CDIntMask_last) begin
             $display("Write 1802");
             PCECD_Drive_SetACK(i_CDIntMask[7]);
-            PCECD_Run;
-            r_CDIntMask = i_CDIntMask;
-            i_CDIntMask_last = i_CDIntMask;
+
+            PCECD_Drive_SetACK(false);
+            PCECD_Drive_Run();
+
+            r_CDIntMask <= i_CDIntMask;
+            i_CDIntMask_last <= i_CDIntMask;
         // $1804
         end else if (i_CDReset != i_CDReset_last) begin
             $display("Write 1804");
             PCECD_Drive_SetRST(i_CDReset[1]);
             // @dentnz - something like this would need to be done to allow the VirtualReset to occur
             //CDLastReset = 0;
-            PCECD_Run;
+    
             if(i_CDReset[1]) begin
-                r_CDBRAMLock &= ~8'h70;
+                r_CDBRAMLock <= r_CDBRAMLock & ~8'h70;
                 //update_irq_state();
             end
-            r_CDReset = i_CDReset;
-            i_CDReset_last = i_CDReset;
+            r_CDReset <= i_CDReset;
+            i_CDReset_last <= i_CDReset;
         end
-    endtask
-
-    always @ (posedge i_clk) begin
-        PCECD_Write;
     end
 
     initial begin
-        PCECD_Drive_Power;
+        //PCECD_Drive_Power;
     end
 endmodule

@@ -31,16 +31,15 @@ void handlePositiveEdgeClock(int tick, Vtop* top) {
         printf("PCE: Sending command 81\n");
         top->i_CDCommand = 0x81;
     }
-
     // if (tick == 11) {
     //     printf("PCE: Sending command 00\n");
     //     top->i_CDCommand = 0x00;
     // }
 
-    if (tick == 12) {
-        printf("PCE: Sending ACK... who does the ACK?!\n");
-        top->i_CDIntMask = 0x80;
-    }
+    // if (tick == 12) {
+    //     printf("PCE: Sending ACK... who does the ACK?!\n");
+    //     top->i_CDIntMask = 0x80;
+    // }
 }
 
 // Here we can do specific things on certain clock ticks
