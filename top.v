@@ -285,14 +285,13 @@ module top(
 
     always @ (posedge i_clk) begin
         // $1800
+        PCECD_Drive_Run();
         if (i_CDStatus != i_CDStatus_last) begin
+            $display("Write 1800 - Status Update Received");
+            r_CDStatus <= i_CDStatus;
             PCECD_Drive_SetSEL(1);
-
             PCECD_Drive_SetACK(false);
-            PCECD_Drive_Run();
-
             PCECD_Drive_SetSEL(0);
-
             PCECD_Drive_SetACK(false);
             PCECD_Drive_Run();
 
@@ -304,20 +303,20 @@ module top(
         end else if (i_CDCommand != i_CDCommand_last) begin
             $display("Write 1801 - Command Received");
             r_CDCommand <= i_CDCommand;
+            PCECD_Drive_Run();
             i_CDCommand_last <= i_CDCommand;
         // $1802
         end else if (i_CDIntMask != i_CDIntMask_last) begin
             $display("Write 1802");
+            r_CDIntMask <= i_CDIntMask;
             PCECD_Drive_SetACK(i_CDIntMask[7]);
-
             PCECD_Drive_SetACK(false);
             PCECD_Drive_Run();
-
-            r_CDIntMask <= i_CDIntMask;
             i_CDIntMask_last <= i_CDIntMask;
         // $1804
         end else if (i_CDReset != i_CDReset_last) begin
             $display("Write 1804");
+            r_CDReset <= i_CDReset;
             PCECD_Drive_SetRST(i_CDReset[1]);
             // @dentnz - something like this would need to be done to allow the VirtualReset to occur
             //CDLastReset = 0;
@@ -332,6 +331,7 @@ module top(
     end
 
     initial begin
-        //PCECD_Drive_Power;
+        SetkingSEL(1);
+        CurrentPhase = PHASE_BUS_FREE;
     end
 endmodule
