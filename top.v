@@ -326,7 +326,7 @@ module top(
                 setSelLatch <= 0;
                 r_CDBRAMLock <= r_CDBRAMLock & ~(8'h20 | 8'h40);
             end
-            PCECD_Drive_Run();
+            
             //update_irq_state();
         // $1801
         end else if (i_CDCommand != i_CDCommand_last) begin
