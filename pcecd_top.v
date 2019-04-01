@@ -13,6 +13,9 @@ module pcecd_top(
 
 //TODO: add hps "channel" to read/write from save ram
 
+reg [7:0] cd_command_buffer [0:255];
+reg [7:0] cd_command_buffer_pos = 0;
+
 //wire [7:0] gp_ram_do,adpcm_ram_do,save_ram_do;
 
 //- 64K general purpose RAM for the CD software to use
@@ -77,9 +80,9 @@ wire CD_signal = cdc_status[4];
 wire IO_signal = cdc_status[3];
 
 // Signals under the control of the initiator(not us!)
-wire RST_signal = cdc_status[0];
-wire ACK_signal = cdc_status[1];
-wire SEL_signal = cdc_status[2];
+wire RST_signal = SCSI_RST;
+wire ACK_signal = SCSI_ACK;
+wire SEL_signal = SCSI_SEL;
 
 localparam BUSY_BIT = 8'h80;
 localparam REQ_BIT  = 8'h40;
@@ -127,7 +130,10 @@ reg clear_ack = 0;
 reg SCSI_think = 0;
 reg SCSI_RST = 0;
 reg SCSI_ACK = 0;
-reg SCSI_SEL = 0;
+// @todo SCSI device selected is forced to one here
+reg SCSI_SEL = 1;
+reg SCSI_SEL_flipflop = 0;
+reg SCSI_SEL_flipflop_latch = 0;
 
 //TODO: a pcecd_drive module should be probably added
 always_ff @(posedge clk) begin
@@ -221,41 +227,38 @@ always_ff @(posedge clk) begin
 								end
 					default: dout <= 8'hFF;
 				endcase
-
 			end else if (wr) begin
 				case (addr)
 					// $1800 - CDC status
 					8'h00: begin
-									// We will need to latch this
 									cdc_status <= din;
-									SCSI_SEL <= 1; // Set SEL high
-									SCSI_think <= 1;
-									SCSI_SEL <= 0; // Set SEL low
-									// @todo another SCSI.Think(); here
+									SCSI_SEL_flipflop_latch <= 1;
 								end
 					8'h01: begin
-									$display("Write to 0x1. 0x%h", din);
+									//$display("Write to 0x1. 0x%h", din);
 									cdc_databus <= din;
 									SCSI_think <= 1;
 								end
 					8'h02: begin
 									adpcm_control <= din;
-									SCSI_ACK <= (din & 8'h80) != 0;
+									// Set ACK signal to contents of the interrupt registers 7th bit? A full command will have this bit high
+									SCSI_ACK <= din[7];
 									SCSI_think <= 1;
-									irq2_assert <= (din & bram_lock & 8'h7C) != 0; // RefreshIRQ2(); ... using din here
-									$display("Write to 0x2. irq2_assert will be: 0x%h", (adpcm_control & bram_lock & 8'h7C) != 0);
+									irq2_assert <= din & bram_lock & 8'h7C; // RefreshIRQ2(); ... using din here
+									//$display("Write to 0x2. irq2_assert will be: 0x%h", (adpcm_control & bram_lock & 8'h7C) != 0);
 								end
 					8'h03: begin
 									bram_lock <= din;
 								end
 					8'h04: begin
 									cd_reset <= din;
-									SCSI_RST <= (din & 8'h2) != 0;
+									// Set RST signal to contents of RST registers 2nd bit
+									SCSI_RST <= din[2];
 									SCSI_think <= 1;
-									if ((din & 8'h02) != 0) begin // if (SCSI_RST)
+									if (din[2]) begin // if (SCSI_RST)
 										bram_lock <= bram_lock & 8'h8F;
 										irq2_assert <= (adpcm_control & bram_lock & 8'h7C) != 0; // RefreshIRQ2();
-										$display("Write to 0x4. irq2_assert will be: 0x%h", (adpcm_control & bram_lock & 8'h7C) != 0);
+										//$display("Write to 0x4. irq2_assert will be: 0x%h", (adpcm_control & bram_lock & 8'h7C) != 0);
 									end
 								end
 					8'h05: begin
@@ -296,7 +299,7 @@ always_ff @(posedge clk) begin
 		end
 
 		if (SCSI_think) begin
-			$display("SCSI_Think()");
+			//$display("SCSI_Think()");
 			SCSI_think <= 0;
 			case (current_phase)
 					PHASE_BUS_FREE: begin
@@ -306,23 +309,25 @@ always_ff @(posedge clk) begin
 						end
 					end
 					PHASE_COMMAND: begin
-						$display ("REQ_Signal is %b", REQ_signal);
-						$display ("ACK_Signal is %b", ACK_signal);
+						// $display ("REQ_Signal is %b", REQ_signal);
+						// $display ("ACK_Signal is %b", ACK_signal);
+						$display ("SCSI_ACK is %b", SCSI_ACK);
+						$display ("cd_command_buffer_pos is %h", cd_command_buffer_pos);
 						if (REQ_signal && ACK_signal) begin
 							$display ("phase_command - setting req false and adding command to buffer");
-							// Databus is valid now
-							//cd_command_buffer_pos <= cd_command_buffer_pos + 1;
-							//$display("cd_command_buffer_pos: %h", cd_command_buffer_pos);
-							//cd_command_buffer [cd_command_buffer_pos] <= o_CDCommand;
+							// Databus is valid now, so we need to collect a command
+							cd_command_buffer_pos <= cd_command_buffer_pos + 1;
+							cd_command_buffer [cd_command_buffer_pos] <= cdc_databus;
 							// Set the REQ low
 							cdc_status[6] <= 0;
-							clear_ack <= 0;
+							// @todo sort Ack clearing out as soon as we get an ACK that is!
+							//clear_ack <= 0;
 						end
-						// if(!REQ_signal && !ACK_signal && cd.command_buffer_pos)	// Received at least one byte, what should we do?
-						if (!REQ_signal && !ACK_signal) begin //&& cd_command_buffer_pos > 8'h0) begin
+						if (!REQ_signal && !ACK_signal && cd_command_buffer_pos > 8'h0) begin
 							// We got a command!!!!!!!
 							//$display ("We got a command! $%h",  cd_command_buffer [cd_command_buffer_pos]);
-							$finish;
+							$display("We got a command");
+							//$finish;
 						end
 					end
 					PHASE_STATUS: begin
@@ -341,7 +346,7 @@ always_ff @(posedge clk) begin
 						end
 					end
 					PHASE_DATA_IN: begin
-						$display ("PHASE_DATA_IN TBC");
+						//$display ("PHASE_DATA_IN TBC");
 						// if (!REQ_signal && !ACK_signal) {
 						// if (din.in_count == 0) // aaand we're done!
 						// {
@@ -383,38 +388,56 @@ always_ff @(posedge clk) begin
 
 		// This might live in a separate module that we instantiate here?
 		if (bus_phase_changed) begin
-			$display("Phase Changed");
+			//$display("Phase Changed");
 			if (current_phase != phase)
 				case (phase)
 					PHASE_BUS_FREE: begin
-						$display ("PHASE_BUS_FREE");
+						//$display ("PHASE_BUS_FREE");
 						cdc_status <= cdc_status & ~BUSY_BIT & ~MSG_BIT & ~CD_BIT & ~IO_BIT & ~REQ_BIT;
 						bram_lock <= bram_lock & ~8'h20; // CDIRQ(IRQ_8000, PCECD_Drive_IRQ_DATA_TRANSFER_DONE);
 						current_phase <= PHASE_BUS_FREE;
 					end
 					PHASE_DATA_IN: begin
-						$display ("PHASE_DATA_IN");
+						//$display ("PHASE_DATA_IN");
 						cdc_status <= cdc_status | BUSY_BIT | IO_BIT & ~MSG_BIT & ~CD_BIT & ~REQ_BIT;
 						current_phase <= PHASE_DATA_IN;
 					end
 					PHASE_STATUS: begin
-						$display ("PHASE_STATUS");
+						//$display ("PHASE_STATUS");
 						cdc_status <= cdc_status | BUSY_BIT | CD_BIT | IO_BIT | REQ_BIT & ~MSG_BIT;
 						current_phase <= PHASE_STATUS;
 					end
 					PHASE_MESSAGE_IN: begin
-						$display ("PHASE_MESSAGE_IN");
+						//$display ("PHASE_MESSAGE_IN");
 						cdc_status <= cdc_status | BUSY_BIT | MSG_BIT | CD_BIT | IO_BIT | REQ_BIT;
 						current_phase <= PHASE_MESSAGE_IN;
 					end
 					PHASE_COMMAND: begin
-						$display ("PHASE_COMMAND");
+						//$display ("PHASE_COMMAND");
 						cdc_status <= cdc_status | BUSY_BIT | CD_BIT | REQ_BIT & ~IO_BIT & ~MSG_BIT;
 						current_phase <= PHASE_COMMAND;
 					end
 				endcase
-				bus_phase_changed <= 1;
+				bus_phase_changed <= 0;
 			end // End current_phase != phase
 		end // End bus_phase_changed
+
+		if (SCSI_SEL_flipflop_latch) begin
+			if (SCSI_SEL_flipflop) begin
+				//$display("**** LATCH LAST ******");
+				// This one will get executed last
+				SCSI_SEL <= 0;
+				SCSI_think <= 1;
+				// Reset the flip flop and latch
+				SCSI_SEL_flipflop <= 0;
+				SCSI_SEL_flipflop_latch <= 0;
+			end else begin
+				//$display("**** LATCH FIRST ******");
+				// This one will get executed first
+				SCSI_SEL <= 1;
+				SCSI_think <= 1;
+				SCSI_SEL_flipflop <= 1;
+			end
+		end
 	end // End else
 endmodule

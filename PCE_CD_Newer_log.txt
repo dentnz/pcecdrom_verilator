@@ -1,25 +1,25 @@
 [MINGW64] F:\msys64\home\electronash\mame>mame64 pce -debug -window -cart "Super CD-ROM System (Japan) (v3.0).pce" -cdrom "Akumajou_Dracula_X_-_Chi_no_Rinne_(NTSC-J)_[KMCD3005].cue"
-Read from Reg: 0x4  CD_RESET         Data: 0x00
-Write to Reg:  0x4  CD_RESET         Data: 0x02
-Read from Reg: 0x4  CD_RESET         Data: 0x02
-Write to Reg:  0x4  CD_RESET         Data: 0x00
-Write to Reg:  0x2  INT_MASK         Data: 0x00
-Write to Reg:  0xf  ADPCM_FADE       Data: 0x00
-Write to Reg:  0xd  ADPCM_ADDR_CONT  Data: 0x80
-Write to Reg:  0xd  ADPCM_ADDR_CONT  Data: 0x00
-Write to Reg:  0xb  ADPCM_DMA_CONT   Data: 0x00
-Read from Reg: 0x2  INT_MASK         Data: 0x00
-Write to Reg:  0x2  INT_MASK         Data: 0x00
-Write to Reg:  0xe  ADPCM_RATE       Data: 0x00
-Read from Reg: 0x3  BRAM_LOCK        Data: 0x00
-Write to Reg:  0x1  CDC_CMD          Data: 0x81
-Read from Reg: 0x0  CDC_STAT         Data: 0x00
-Write to Reg:  0x0  CDC_STAT         Data: 0x81  Clear the ACK,DONE,BRAM interrupt flags?
+1) Read from Reg: 0x4  CD_RESET         Data: 0x00
+2) Write to Reg:  0x4  CD_RESET         Data: 0x02
+3) Read from Reg: 0x4  CD_RESET         Data: 0x02
+4) Write to Reg:  0x4  CD_RESET         Data: 0x00
+5) Write to Reg:  0x2  INT_MASK         Data: 0x00
+6) Write to Reg:  0xf  ADPCM_FADE       Data: 0x00
+7) Write to Reg:  0xd  ADPCM_ADDR_CONT  Data: 0x80
+8) Write to Reg:  0xd  ADPCM_ADDR_CONT  Data: 0x00
+9) Write to Reg:  0xb  ADPCM_DMA_CONT   Data: 0x00
+10)Read from Reg: 0x2  INT_MASK         Data: 0x00
+11)Write to Reg:  0x2  INT_MASK         Data: 0x00
+12)Write to Reg:  0xe  ADPCM_RATE       Data: 0x00
+13)Read from Reg: 0x3  BRAM_LOCK        Data: 0x00
+14)Write to Reg:  0x1  CDC_CMD          Data: 0x81
+15)Read from Reg: 0x0  CDC_STAT         Data: 0x00
+16)Write to Reg:  0x0  CDC_STAT         Data: 0x81  Clear the ACK,DONE,BRAM interrupt flags?
 PCE_CD_IRQ_TRANSFER_DONE Cleared
 PCE_CD_IRQ_BRAM Cleared
-Read from Reg: 0x0  CDC_STAT         Data: 0xd1  [7]BUSY [6]REQ  [4]CD
-Read from Reg: 0x0  CDC_STAT         Data: 0xd1  [7]BUSY [6]REQ  [4]CD
-Write to Reg:  0x1  CDC_CMD          Data: 0x00
+17)Read from Reg: 0x0  CDC_STAT         Data: 0xd1  [7]BUSY [6]REQ  [4]CD
+18)Read from Reg: 0x0  CDC_STAT         Data: 0xd1  [7]BUSY [6]REQ  [4]CD
+19)Write to Reg:  0x1  CDC_CMD          Data: 0x00
 Read from Reg: 0x2  INT_MASK         Data: 0x00
 Write to Reg:  0x2  INT_MASK         Data: 0x80  [7]ACK!
 Read from Reg: 0x0  CDC_STAT         Data: 0x91  [7]BUSY [4]CD

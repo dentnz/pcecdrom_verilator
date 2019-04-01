@@ -17,73 +17,81 @@ void handlePositiveEdgeClock(int tick, Vpcecd_top* pcecd) {
     // This could be something smarter, but for now... we only care about a few clock cycles
     pcecd->sel = 0;
     if (tick == 1) {
-        printf("Read from Reg: 0x4  CD_RESET         Expecting: 0x00\n");
+        printf("1) Read from Reg: 0x4  CD_RESET         Expecting: 0x00\n");
         pcecd_read(0x04, pcecd);
     }
     if (tick == 2) {
-        printf("Write to Reg:  0x4  CD_RESET         Data: 0x02\n");
+        printf("2) Write to Reg:  0x4  CD_RESET         Data: 0x02\n");
         pcecd_write(0x04, 0x02, pcecd);
     }
     if (tick == 3) {
-        printf("Read from Reg:  0x4  CD_RESET        Expecting: 0x02\n");
+        printf("3) Read from Reg: 0x4  CD_RESET         Expecting: 0x02\n");
         pcecd_read(0x04, pcecd);
     }
     if (tick == 4) {
-        printf("Write to Reg:  0x4  CD_RESET         Data: 0x00\n");
+        printf("4) Write to Reg:  0x4  CD_RESET         Data: 0x00\n");
         pcecd_write(0x04, 0x00, pcecd);
 
     }
     if (tick == 5) {
-        printf("Write to Reg:  0x2  INT_MASK         Data: 0x00\n");
+        printf("5) Write to Reg:  0x2  INT_MASK         Data: 0x00\n");
         pcecd_write(0x02, 0x00, pcecd);
     }
 
     // These will need to be sorted out too
     if (tick == 6) {
-        printf("TBC: Write to Reg:  0xf  ADPCM_FADE          Data: 0x00\n");
+        printf("6) Write to Reg:  0xf  ADPCM_FADE       Data: 0x00\n");
     }
     if (tick == 7) {
-        printf("TBC: Write to Reg:  0xd  ADPCM_ADDR_CONT     Data: 0x80\n");
+        printf("7) Write to Reg:  0xd  ADPCM_ADDR_CONT  Data: 0x80\n");
     }
     if (tick == 8) {
-        printf("TBC: Write to Reg:  0xd  ADPCM_ADDR_CONT     Data: 0x00\n");
+        printf("8) Write to Reg:  0xd  ADPCM_ADDR_CONT  Data: 0x00\n");
     }
     if (tick == 9) {
-        printf("TBC: Write to Reg:  0xb  ADPCM_DMA_CONT      Data: 0x00\n");
+        printf("9) Write to Reg:  0xb  ADPCM_DMA_CONT   Data: 0x00\n");
     }
 
     if (tick == 10) {
-        printf("Read from Reg: 0x2  INT_MASK         Expecting: 0x00\n");
+        printf("10)Read from Reg: 0x2  INT_MASK         Expecting: 0x00\n");
         pcecd_read(0x02, pcecd);
     }
     if (tick == 11) {
-        printf("Write to Reg:  0x2  INT_MASK         Data: 0x00\n");
+        printf("11)Write to Reg:  0x2  INT_MASK         Data: 0x00\n");
         pcecd_write(0x02, 0x00, pcecd);
     }
 
     // This one too
     if (tick == 12) {
-        printf("TBC: Write to Reg:  0xe  ADPCM_RATE         Data: 0x00\n");
+        printf("12)Write to Reg:  0xe  ADPCM_RATE       Data: 0x00\n");
     }
     if (tick == 13) {
-        printf("Read from Reg: 0x3  BRAM_LOCK        Expecting: 0x00\n");
+        printf("13)Read from Reg: 0x3  BRAM_LOCK        Expecting: 0x00\n");
         pcecd_read(0x03, pcecd);
     }
     if (tick == 14) {
-        printf("Write to Reg: 0x1  CD_STATUS         Data: 0x81\n");
+        printf("14)Write to Reg:  0x1  CD_CMD           Data: 0x81\n");
         pcecd_write(0x01, 0x81, pcecd);
     }
     if (tick == 15) {
-        printf("Read from Reg: 0x0  CDC_STAT         Expecting: 0x00\n");
+        printf("15)Read from Reg: 0x0  CDC_STAT         Expecting: 0x00\n");
         pcecd_read(0x00, pcecd);
     }
     if (tick == 16) {
-        printf("Write to Reg:  0x0  CDC_STAT         Data: 0x81  Clear the ACK,DONE,BRAM interrupt flags?\n");
-        pcecd_write(0x00, 0x00, pcecd);
+        printf("16)Write to Reg:  0x0  CDC_STAT         Data: 0x81       Clear the ACK,DONE,BRAM interrupt flags\n");
+        pcecd_write(0x00, 0x81, pcecd);
     }
     if (tick == 17) {
-        printf("Read from Reg: 0x0  CDC_STAT         Expecting: 0xd1  [7]BUSY [6]REQ  [4]CD\n");
+        printf("17)Read from Reg: 0x0  CDC_STAT         Expecting: 0xd1  [7]BUSY [6]REQ  [4]CD\n");
         pcecd_read(0x00, pcecd);
+    }
+    if (tick == 18) {
+        printf("18)Read from Reg: 0x0  CDC_STAT         Expecting: 0xd1  [7]BUSY [6]REQ  [4]CD\n");
+        pcecd_read(0x00, pcecd);
+    }
+    if (tick == 19) {
+        printf("19)Write to Reg: 0x1  CDC_CMD           Data: 0x00\n");
+        pcecd_write(0x00, 0x00, pcecd);
     }
 }
 
