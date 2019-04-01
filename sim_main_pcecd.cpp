@@ -1,82 +1,97 @@
-//docker run --rm -v $(pwd):/data rweda/verilator "cd /data; verilator -Wall --cc pcecd.v --exe sim_main_pcecd.cpp; cd obj_dir; make -j -f Vpcecd.mk Vpcecd"
+//docker run --rm -v $(pwd):/data rweda/verilator "cd /data; verilator -Wall --cc pcecd_top.v --exe sim_main_pcecd.cpp; cd obj_dir; make -j -f Vpcecd_top.mk Vpcecd_top"
 
-#include "Vpcecd.cpp"
+#include "Vpcecd_top.cpp"
 #include "verilated.h"
 #include <iostream>
 
 // Here we can do specific things on certain clock ticks
-void handlePositiveEdgeClock(int tick, Vpcecd* pcecd) {
+void handlePositiveEdgeClock(int tick, Vpcecd_top* pcecd) {
     // This could be something smarter, but for now... we only care about a few clock cycles
-    // if (tick == 5) {
-    //     // Pcetech.txt
-    //     // $1804 - CD reset
-    //     // Bit 2 is used to reset the CD hardware. The CD_RESET function sets bit 2,
-    //     // waits for a few cycles, and then clears bit 2.
-    //     printf("PCE: Reset - bit 2 high\n");
-    //     top->i_CDReset |=  0x2;
-    // }
-
-    // if (tick == 8) {
-    //     printf("PCE: Reset - bit 2 low\n");
-    //     // See tick 1
-    //     top->i_CDReset = 0;
-    // }
-
+    pcecd->sel = 0;
     if (tick == 1) {
-        printf("PCE: Sending command 81\n");
-        pcecd->i_CDCommand = 0x81;
+        printf("Read from Reg: 0x4  CD_RESET         Expecting: 0x00\n");
+        pcecd->addr = 0x04;
+        pcecd->sel = 1;
+        pcecd->rd = 1;
+        pcecd->wr = 0;
     }
-
     if (tick == 2) {
-        pcecd->i_CDIntMask = 0x80;
+        printf("Write to Reg:  0x4  CD_RESET         Data: 0x02\n");
+        pcecd->addr = 0x04;
+        pcecd->wr = 1;
+        pcecd->rd = 0;
+        pcecd->sel = 1;
+        pcecd->din = 0x02;
     }
-
     if (tick == 3) {
-        pcecd->i_CDCommand = 0x00;
+        printf("Read from Reg:  0x4  CD_RESET        Expecting: 0x02\n");
+        pcecd->addr = 0x04;
+        pcecd->sel = 1;
+        pcecd->rd = 1;
+        pcecd->wr = 0;
     }
-
     if (tick == 4) {
-        pcecd->i_CDIntMask = 0x80;
+        printf("Write to Reg:  0x4  CD_RESET         Data: 0x00\n");
+        pcecd->addr = 0x04;
+        pcecd->wr = 1;
+        pcecd->rd = 0;
+        pcecd->sel = 1;
+        pcecd->din = 0x00;
     }
-
     if (tick == 5) {
-        pcecd->i_CDCommand = 0x81;
+        printf("Write to Reg:  0x2  INT_MASK         Data: 0x00\n");
+        pcecd->addr = 0x02;
+        pcecd->wr = 1;
+        pcecd->rd = 0;
+        pcecd->sel = 1;
+        pcecd->din = 0x00;
     }
 
+    // These will need to be sorted out too
     if (tick == 6) {
-        pcecd->i_CDIntMask = 0x80;
+        printf("TBC: Write to Reg:  0xf  ADPCM_FADE          Data: 0x00\n");
+    }
+    if (tick == 7) {
+        printf("TBC: Write to Reg:  0xd  ADPCM_ADDR_CONT     Data: 0x80\n");
+    }
+    if (tick == 8) {
+        printf("TBC: Write to Reg:  0xd  ADPCM_ADDR_CONT     Data: 0x00\n");
+    }
+    if (tick == 9) {
+        printf("TBC: Write to Reg:  0xb  ADPCM_DMA_CONT      Data: 0x00\n");
+    }
+
+    if (tick == 10) {
+        printf("Read from Reg: 0x2  INT_MASK         Expecting: 0x00\n");
+        pcecd->addr = 0x02;
+        pcecd->sel = 1;
+        pcecd->rd = 1;
+        pcecd->wr = 0;
+    }
+    if (tick == 11) {
+        printf("Write to Reg:  0x2  INT_MASK         Data: 0x00\n");
+        pcecd->addr = 0x02;
+        pcecd->sel = 1;
+        pcecd->rd = 1;
+        pcecd->wr = 1;
+        pcecd->din - 0x00;
+    }
+
+    // This one too
+    if (tick == 12) {
+        printf("TBC: Write to Reg:  0xe  ADPCM_RATE         Data: 0x00\n");
+    }
+    if (tick == 13) {
+        printf("Read from Reg: 0x3  BRAM_LOCK        Expecting: 0x00\n");
+        pcecd->addr = 0x03;
+        pcecd->sel = 1;
+        pcecd->rd = 1;
+        pcecd->wr = 0;
     }
 }
 
 // Here we can do specific things on certain clock ticks
-void logCdRegisters(Vpcecd* pcecd) {
-    printf("PCE_CD: 0x00 CDC_STAT:    %02x", pcecd->o_CDStatus);
-    if (pcecd->o_CDStatus & 0x80) printf(" [7]BUSY ");
-    if (pcecd->o_CDStatus & 0x40) printf(" [6]REQ  ");
-    if (pcecd->o_CDStatus & 0x20) printf(" [5]MSG  ");
-    if (pcecd->o_CDStatus & 0x10) printf(" [4]CD   ");
-    if (pcecd->o_CDStatus & 0x08) printf(" [3]IO   ");
-    printf("\n");
-
-    printf("PCE_CD: 0x02 INT_MASK:    %02x", pcecd->o_CDIntMask);
-    if (pcecd->o_CDIntMask & 0x80) printf(" [7]ACK_FLAG! ");    // Actual ACKnowledge flag, AFAIK. ElectronAsh.
-    if (pcecd->o_CDIntMask & 0x40) printf(" [6]ACK_MASK  ");
-    if (pcecd->o_CDIntMask & 0x20) printf(" [5]DONE_MASK ");
-    if (pcecd->o_CDIntMask & 0x10) printf(" [4]BRAM_MASK ");
-    if (pcecd->o_CDIntMask & 0x08) printf(" [3]FULL_MASK ");
-    if (pcecd->o_CDIntMask & 0x04) printf(" [2]HALF_MASK ");
-    if (pcecd->o_CDIntMask & 0x02) printf(" [1]L/R ");
-    printf("\n");
-    
-    printf("PCE_CD: 0x03 BRAM_LOCK:   %02x", pcecd->o_CDBRAMLock);
-    if (pcecd->o_CDBRAMLock & 0x40) printf(" ACK  "); // Bit 6.
-    if (pcecd->o_CDBRAMLock & 0x20) printf(" DONE "); // Bit 5.
-    if (pcecd->o_CDBRAMLock & 0x10) printf(" BRAM "); // Bit 4.
-    if (pcecd->o_CDBRAMLock & 0x08) printf(" FULL "); // Bit 3.
-    if (pcecd->o_CDBRAMLock & 0x04) printf(" HALF "); // Bit 2.
-    if (pcecd->o_CDBRAMLock & 0x02) printf(" L/R ");  // Bit 1.
-    printf("\n");
-
+void logCdRegisters(Vpcecd_top* pcecd) {
     // 	data = read_cd_reg(0x04);
     // 	if (previous_reg_04 != data) {
     // 		printf("PCE_CD: 0x04 CD RESET:    %02x\n", data);
@@ -123,7 +138,7 @@ void logCdRegisters(Vpcecd* pcecd) {
 int main(int argc, char **argv, char **env) {    
     Verilated::commandArgs(argc, argv);
     // Create instance
-    Vpcecd* pcecd = new Vpcecd;
+    Vpcecd_top* pcecd = new Vpcecd_top;
 
     // Simulation time...
     int tick = 0;
@@ -132,15 +147,15 @@ int main(int argc, char **argv, char **env) {
         char input;
         cin>>input;
         // Toggle the clock - tick tock
-        pcecd->i_clk = 0;
+        pcecd->clk = 0;
         pcecd->eval();
         // tick
-        pcecd->i_clk = 1;
+        pcecd->clk = 1;
         handlePositiveEdgeClock(tick, pcecd);
         pcecd->eval();
-        logCdRegisters(pcecd);
+        //logCdRegisters(pcecd);
         // tock
-        pcecd->i_clk = 0;
+        pcecd->clk = 0;
         pcecd->eval();
     }
 
