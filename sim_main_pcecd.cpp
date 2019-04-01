@@ -74,7 +74,7 @@ void handlePositiveEdgeClock(int tick, Vpcecd_top* pcecd) {
         pcecd_write(0x01, 0x81, pcecd);
     }
     if (tick == 15) {
-        printf("15)Read from Reg: 0x0  CDC_STAT         Expecting: 0x00\n");
+        printf("15)Read from Reg: 0x0  CDC_STAT         Expecting: 0x00 <===== This one is failing\n");
         pcecd_read(0x00, pcecd);
     }
     if (tick == 16) {
@@ -91,7 +91,15 @@ void handlePositiveEdgeClock(int tick, Vpcecd_top* pcecd) {
     }
     if (tick == 19) {
         printf("19)Write to Reg: 0x1  CDC_CMD           Data: 0x00\n");
-        pcecd_write(0x00, 0x00, pcecd);
+        pcecd_write(0x01, 0x00, pcecd);
+    }
+    if (tick == 20) {
+        printf("20)Read from Reg: 0x2  INT_MASK         Expecting: 0x00\n");
+        pcecd_read(0x02, pcecd);
+    }
+    if (tick == 21) {
+        printf("21)Write to Reg:  0x2  INT_MASK         Data: 0x80\n");
+        pcecd_write(0x02, 0x80, pcecd);
     }
 }
 

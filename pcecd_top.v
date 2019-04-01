@@ -185,6 +185,7 @@ always_ff @(posedge clk) begin
 					8'h03: begin
 									$display("Read 0x3. dout = 0x%h", bram_lock);
 									dout <= bram_lock;
+									bram_lock <= bram_lock ^ 2;
 									$display("bram_enabled = 0x%h", 1'b0);
 									bram_enabled <= 1'b0;
 								end
@@ -253,10 +254,11 @@ always_ff @(posedge clk) begin
 					8'h04: begin
 									cd_reset <= din;
 									// Set RST signal to contents of RST registers 2nd bit
-									SCSI_RST <= din[2];
+									SCSI_RST <= din[1];
 									SCSI_think <= 1;
-									if (din[2]) begin // if (SCSI_RST)
-										bram_lock <= bram_lock & 8'h8F;
+									if (din[1]) begin // if (SCSI_RST)
+										$display("CD RESET");
+										bram_lock <= bram_lock & 8'h8F; // CdIoPorts[3] &= 0x8F;
 										irq2_assert <= (adpcm_control & bram_lock & 8'h7C) != 0; // RefreshIRQ2();
 										//$display("Write to 0x4. irq2_assert will be: 0x%h", (adpcm_control & bram_lock & 8'h7C) != 0);
 									end
@@ -309,8 +311,6 @@ always_ff @(posedge clk) begin
 						end
 					end
 					PHASE_COMMAND: begin
-						// $display ("REQ_Signal is %b", REQ_signal);
-						// $display ("ACK_Signal is %b", ACK_signal);
 						$display ("SCSI_ACK is %b", SCSI_ACK);
 						$display ("cd_command_buffer_pos is %h", cd_command_buffer_pos);
 						if (REQ_signal && ACK_signal) begin
