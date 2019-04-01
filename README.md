@@ -18,7 +18,6 @@ docker run --rm -v $(pwd):/data rweda/verilator "cd /data; verilator -Wall --cc 
 ```
 From here you can type a character (or several) and press enter to advance the clock:
 ```
-...................................
 .................
 Read from Reg: 0x4  CD_RESET         Expecting: 0x00
 Read 0x4. dout = 0x00
@@ -45,5 +44,6 @@ bram_enabled = 0x0
 
 ## Plan
 
-Using the contents of userio_cpp_stuff/beetle_userio_stuff.cpp, generate some Verilated Verilog code that can be run on the FPGA that would mimic how Beetle acts as a cdrom interface. It is hoped that with
-some effort, the entire cdrom interface could then be added to the existing PC Engine core. 
+Plan has changed, now using this code here as the guide for implementing this stuff:
+
+https://github.com/TASVideos/BizHawk/blob/master/BizHawk.Emulation.Cores/Consoles/PC%20Engine/PCEngine.TurboCD.cs
