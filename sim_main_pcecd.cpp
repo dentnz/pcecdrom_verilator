@@ -4,47 +4,38 @@
 #include "verilated.h"
 #include <iostream>
 
+void pcecd_read(char addr, Vpcecd_top* pcecd) {
+    pcecd->addr = addr; pcecd->sel = 1; pcecd->rd = 1; pcecd->wr = 0;
+}
+
+void pcecd_write(char addr, char din, Vpcecd_top* pcecd) {
+    pcecd->addr = addr; pcecd->din = din; pcecd->sel = 1; pcecd->rd = 0; pcecd->wr = 1;
+}
+
 // Here we can do specific things on certain clock ticks
 void handlePositiveEdgeClock(int tick, Vpcecd_top* pcecd) {
     // This could be something smarter, but for now... we only care about a few clock cycles
     pcecd->sel = 0;
     if (tick == 1) {
         printf("Read from Reg: 0x4  CD_RESET         Expecting: 0x00\n");
-        pcecd->addr = 0x04;
-        pcecd->sel = 1;
-        pcecd->rd = 1;
-        pcecd->wr = 0;
+        pcecd_read(0x04, pcecd);
     }
     if (tick == 2) {
         printf("Write to Reg:  0x4  CD_RESET         Data: 0x02\n");
-        pcecd->addr = 0x04;
-        pcecd->wr = 1;
-        pcecd->rd = 0;
-        pcecd->sel = 1;
-        pcecd->din = 0x02;
+        pcecd_write(0x04, 0x02, pcecd);
     }
     if (tick == 3) {
         printf("Read from Reg:  0x4  CD_RESET        Expecting: 0x02\n");
-        pcecd->addr = 0x04;
-        pcecd->sel = 1;
-        pcecd->rd = 1;
-        pcecd->wr = 0;
+        pcecd_read(0x04, pcecd);
     }
     if (tick == 4) {
         printf("Write to Reg:  0x4  CD_RESET         Data: 0x00\n");
-        pcecd->addr = 0x04;
-        pcecd->wr = 1;
-        pcecd->rd = 0;
-        pcecd->sel = 1;
-        pcecd->din = 0x00;
+        pcecd_write(0x04, 0x00, pcecd);
+
     }
     if (tick == 5) {
         printf("Write to Reg:  0x2  INT_MASK         Data: 0x00\n");
-        pcecd->addr = 0x02;
-        pcecd->wr = 1;
-        pcecd->rd = 0;
-        pcecd->sel = 1;
-        pcecd->din = 0x00;
+        pcecd_write(0x02, 0x00, pcecd);
     }
 
     // These will need to be sorted out too
@@ -63,18 +54,11 @@ void handlePositiveEdgeClock(int tick, Vpcecd_top* pcecd) {
 
     if (tick == 10) {
         printf("Read from Reg: 0x2  INT_MASK         Expecting: 0x00\n");
-        pcecd->addr = 0x02;
-        pcecd->sel = 1;
-        pcecd->rd = 1;
-        pcecd->wr = 0;
+        pcecd_read(0x02, pcecd);
     }
     if (tick == 11) {
         printf("Write to Reg:  0x2  INT_MASK         Data: 0x00\n");
-        pcecd->addr = 0x02;
-        pcecd->sel = 1;
-        pcecd->rd = 1;
-        pcecd->wr = 1;
-        pcecd->din - 0x00;
+        pcecd_write(0x02, 0x00, pcecd);
     }
 
     // This one too
@@ -83,56 +67,24 @@ void handlePositiveEdgeClock(int tick, Vpcecd_top* pcecd) {
     }
     if (tick == 13) {
         printf("Read from Reg: 0x3  BRAM_LOCK        Expecting: 0x00\n");
-        pcecd->addr = 0x03;
-        pcecd->sel = 1;
-        pcecd->rd = 1;
-        pcecd->wr = 0;
+        pcecd_read(0x03, pcecd);
     }
-}
-
-// Here we can do specific things on certain clock ticks
-void logCdRegisters(Vpcecd_top* pcecd) {
-    // 	data = read_cd_reg(0x04);
-    // 	if (previous_reg_04 != data) {
-    // 		printf("PCE_CD: 0x04 CD RESET:    %02x\n", data);
-    // 		previous_reg_04 = data;
-    // 	}
-
-    // 	data = read_cd_reg(0x05);
-    // 	if (previous_reg_05 != data) {
-    // 		printf("PCE_CD: 0x05 CONV_PCM:    %02x\n", data);
-    // 		previous_reg_05 = data;
-    // 	}
-
-    // 	data = read_cd_reg(0x06);
-    // 	if (previous_reg_06 != data) {
-    // 		printf("PCE_CD: 0x06 PCM_DATA:    %02x\n", data);
-    // 		previous_reg_06 = data;
-    // 	}
-
-    // 	data = read_cd_reg(0x07);
-    // 	if (previous_reg_07 != data) {
-    // 		printf("PCE_CD: 0x07 BRAM_UNLOCK: %02x\n", data);
-    // 		previous_reg_07 = data;
-    // 	}
-
-    // 	// todo: need to complete all of these
-    // 	// printf("0x00 CDC_STAT:    %02x\n", read_cd_reg(0x00));
-    // 	// printf("0x01 CDC_CMD:     %02x\n", read_cd_reg(0x01));
-    // 	// printf("0x02 INT_MASK:    %02x\n", read_cd_reg(0x02));
-    // 	// printf("0x03 BRAM_LOCK:   %02x\n", read_cd_reg(0x03));
-    // 	// printf("0x04 CD RESET:    %02x\n", read_cd_reg(0x04));
-    // 	// printf("0x05 CONV_PCM:    %02x\n", read_cd_reg(0x05));
-    // 	// printf("0x06 PCM_DATA:    %02x\n", read_cd_reg(0x06));
-    // 	// printf("0x07 BRAM_UNLOCK: %02x\n", read_cd_reg(0x07));
-    // 	// printf("0x08 ADPCM_A_LO:  %02x\n", read_cd_reg(0x08));
-    // 	// printf("0x09 ADPCM_A_HI:  %02x\n", read_cd_reg(0x09));
-    // 	// printf("0x0a AD_RAM_DATA: %02x\n", read_cd_reg(0x0a));
-    // 	// printf("0x0b AD_DMA_CONT: %02x\n", read_cd_reg(0x0b));
-    // 	// printf("0x0c ADPCM_STAT:  %02x\n", read_cd_reg(0x0c));
-    // 	// printf("0x0d ADPCM_ADDR:  %02x\n", read_cd_reg(0x0d));
-    // 	// printf("0x0e ADPCM_RATE:  %02x\n", read_cd_reg(0x0e));
-    // 	// printf("0x0f ADPCM_FADE:  %02x\n", read_cd_reg(0x0f));
+    if (tick == 14) {
+        printf("Write to Reg: 0x1  CD_STATUS         Data: 0x81\n");
+        pcecd_write(0x01, 0x81, pcecd);
+    }
+    if (tick == 15) {
+        printf("Read from Reg: 0x0  CDC_STAT         Expecting: 0x00\n");
+        pcecd_read(0x00, pcecd);
+    }
+    if (tick == 16) {
+        printf("Write to Reg:  0x0  CDC_STAT         Data: 0x81  Clear the ACK,DONE,BRAM interrupt flags?\n");
+        pcecd_write(0x00, 0x00, pcecd);
+    }
+    if (tick == 17) {
+        printf("Read from Reg: 0x0  CDC_STAT         Expecting: 0xd1  [7]BUSY [6]REQ  [4]CD\n");
+        pcecd_read(0x00, pcecd);
+    }
 }
 
 int main(int argc, char **argv, char **env) {    
