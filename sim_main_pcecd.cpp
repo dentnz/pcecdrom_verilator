@@ -73,34 +73,35 @@ void handlePositiveEdgeClock(int tick, Vpcecd_top* pcecd) {
         printf("14)Write to Reg:  0x1  CD_CMD           Data: 0x81\n");
         pcecd_write(0x01, 0x81, pcecd);
     }
-    if (tick == 15) {
-        printf("15)Read from Reg: 0x0  CDC_STAT         Expecting: 0x00 <===== This one is failing\n");
+    if (tick == 20) {
+        printf("15)Read from Reg: 0x0  CDC_STAT         Expecting: 0x00 <======== This is failing\n");
         pcecd_read(0x00, pcecd);
     }
-    if (tick == 16) {
+    if (tick == 21) {
         printf("16)Write to Reg:  0x0  CDC_STAT         Data: 0x81       Clear the ACK,DONE,BRAM interrupt flags\n");
         pcecd_write(0x00, 0x81, pcecd);
     }
-    if (tick == 17) {
+    if (tick == 22) {
         printf("17)Read from Reg: 0x0  CDC_STAT         Expecting: 0xd1  [7]BUSY [6]REQ  [4]CD\n");
         pcecd_read(0x00, pcecd);
     }
-    if (tick == 18) {
+    if (tick == 23) {
         printf("18)Read from Reg: 0x0  CDC_STAT         Expecting: 0xd1  [7]BUSY [6]REQ  [4]CD\n");
         pcecd_read(0x00, pcecd);
     }
-    if (tick == 19) {
-        printf("19)Write to Reg: 0x1  CDC_CMD           Data: 0x00\n");
-        pcecd_write(0x01, 0x00, pcecd);
-    }
-    if (tick == 20) {
-        printf("20)Read from Reg: 0x2  INT_MASK         Expecting: 0x00\n");
-        pcecd_read(0x02, pcecd);
-    }
-    if (tick == 21) {
-        printf("21)Write to Reg:  0x2  INT_MASK         Data: 0x80\n");
-        pcecd_write(0x02, 0x80, pcecd);
-    }
+
+    // if (tick == 19) {
+    //     printf("19)Write to Reg: 0x1  CDC_CMD           Data: 0x00\n");
+    //     pcecd_write(0x01, 0x00, pcecd);
+    // }
+    // if (tick == 20) {
+    //     printf("20)Read from Reg: 0x2  INT_MASK         Expecting: 0x00\n");
+    //     pcecd_read(0x02, pcecd);
+    // }
+    // if (tick == 21) {
+    //     printf("21)Write to Reg:  0x2  INT_MASK         Data: 0x80\n");
+    //     pcecd_write(0x02, 0x80, pcecd);
+    // }
 }
 
 int main(int argc, char **argv, char **env) {    

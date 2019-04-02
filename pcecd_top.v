@@ -90,13 +90,13 @@ localparam MSG_BIT  = 8'h20;
 localparam CD_BIT   = 8'h10;
 localparam IO_BIT   = 8'h08;
 
-localparam PHASE_BUS_FREE    = 8'b00000000;
-localparam PHASE_COMMAND     = 8'b00000001;
-localparam PHASE_DATA_IN     = 8'b00000010;
-localparam PHASE_DATA_OUT    = 8'b00000100;
-localparam PHASE_STATUS      = 8'b00001000;
-localparam PHASE_MESSAGE_IN  = 8'b00010000;
-localparam PHASE_MESSAGE_OUT = 8'b00100000;
+localparam PHASE_BUS_FREE    = 8'b00000001;
+localparam PHASE_COMMAND     = 8'b00000010;
+localparam PHASE_DATA_IN     = 8'b00000100;
+localparam PHASE_DATA_OUT    = 8'b00001000;
+localparam PHASE_STATUS      = 8'b00010000;
+localparam PHASE_MESSAGE_IN  = 8'b00100000;
+localparam PHASE_MESSAGE_OUT = 8'b01000000;
 
 reg [7:0] cdc_databus;            // $1801 - CDC command / status / data //TODO: this will probably change to a wire connected to the pcecd_drive module
 reg [7:0] adpcm_control;          // $1802 - ADPCM / CD control
@@ -117,8 +117,8 @@ reg [7:0] adpcm_fade_timer;       // $180F - ADPCM and CD audio fade timer
 
 // Phase handling
 reg [7:0] phase = 0;
-reg [7:0] current_phase = 0;
-reg bus_phase_changed = 0;
+reg [7:0] current_phase = PHASE_BUS_FREE;
+reg bus_phase_changed = 1;
 
 // Status sending
 reg cd_status_sent = 0;
@@ -233,6 +233,7 @@ always_ff @(posedge clk) begin
 					// $1800 - CDC status
 					8'h00: begin
 									cdc_status <= din;
+									// Try to trigger the SEL flipflop latch thing
 									SCSI_SEL_flipflop_latch <= 1;
 								end
 					8'h01: begin
@@ -245,7 +246,7 @@ always_ff @(posedge clk) begin
 									// Set ACK signal to contents of the interrupt registers 7th bit? A full command will have this bit high
 									SCSI_ACK <= din[7];
 									SCSI_think <= 1;
-									irq2_assert <= din & bram_lock & 8'h7C; // RefreshIRQ2(); ... using din here
+									irq2_assert <= (din & bram_lock & 8'h7C) != 0; // RefreshIRQ2(); ... using din here
 									//$display("Write to 0x2. irq2_assert will be: 0x%h", (adpcm_control & bram_lock & 8'h7C) != 0);
 								end
 					8'h03: begin
@@ -254,10 +255,9 @@ always_ff @(posedge clk) begin
 					8'h04: begin
 									cd_reset <= din;
 									// Set RST signal to contents of RST registers 2nd bit
-									SCSI_RST <= din[1];
+									SCSI_RST <= (din & 8'h02) != 0;
 									SCSI_think <= 1;
-									if (din[1]) begin // if (SCSI_RST)
-										$display("CD RESET");
+									if ((din & 8'h02) != 0) begin // if (SCSI_RST)
 										bram_lock <= bram_lock & 8'h8F; // CdIoPorts[3] &= 0x8F;
 										irq2_assert <= (adpcm_control & bram_lock & 8'h7C) != 0; // RefreshIRQ2();
 										//$display("Write to 0x4. irq2_assert will be: 0x%h", (adpcm_control & bram_lock & 8'h7C) != 0);
@@ -297,13 +297,52 @@ always_ff @(posedge clk) begin
 									adpcm_fade_timer <= din;
 								end
 				endcase
-			end
-		end
+			end // end wr
 
-		if (SCSI_think) begin
-			//$display("SCSI_Think()");
-			SCSI_think <= 0;
-			case (current_phase)
+			if (SCSI_SEL_flipflop_latch) begin
+				if (SCSI_SEL_flipflop) begin
+					$display("**** LATCH LAST ******");
+					// This one will get executed last
+					SCSI_SEL <= 0;
+					SCSI_think <= 1;
+					// Reset the flip flop and latch
+					SCSI_SEL_flipflop <= 0;
+					SCSI_SEL_flipflop_latch <= 0;
+				end else begin
+					$display("**** LATCH FIRST ******");
+					// This one will get executed first
+					SCSI_SEL <= 1;
+					SCSI_think <= 1;
+					SCSI_SEL_flipflop <= 1;
+				end
+			end // End Scsi flipflop
+
+			if (clear_ack) begin
+				$display("PCECD: Clearing ACK");
+			end
+
+			if (SCSI_RST) begin
+				$display("Performing reset");
+				cdc_status <= 0;
+				SCSI_ACK <= 0;
+				SCSI_RST <= 0;
+				// Clear the command buffer
+				// Stop all reads
+				// Stop all audio
+				phase <= PHASE_BUS_FREE;
+				bus_phase_changed <= 1;
+			end
+
+			if (SCSI_think && !SCSI_RST) begin
+				//$display("SCSI_Think()");
+				SCSI_think <= 0;
+
+				if (SCSI_SEL && !(BSY_signal)) begin
+					phase <= PHASE_COMMAND;
+					bus_phase_changed <= 1;
+				end
+
+				case (current_phase)
 					PHASE_BUS_FREE: begin
 						if (SCSI_SEL) begin
 							phase <= PHASE_COMMAND;
@@ -312,6 +351,7 @@ always_ff @(posedge clk) begin
 					end
 					PHASE_COMMAND: begin
 						$display ("SCSI_ACK is %b", SCSI_ACK);
+						$display ("REQ_signal is %b", REQ_signal);
 						$display ("cd_command_buffer_pos is %h", cd_command_buffer_pos);
 						if (REQ_signal && ACK_signal) begin
 							$display ("phase_command - setting req false and adding command to buffer");
@@ -379,65 +419,48 @@ always_ff @(posedge clk) begin
 							//bus_phase_changed <= 1;
 						//end
 					end
-			endcase
-		end // End SCSI_Think();
-
-		if (clear_ack) begin
-			$display("PCECD: Clearing ACK");
-		end
-
-		// This might live in a separate module that we instantiate here?
-		if (bus_phase_changed) begin
-			//$display("Phase Changed");
-			if (current_phase != phase)
-				case (phase)
-					PHASE_BUS_FREE: begin
-						//$display ("PHASE_BUS_FREE");
-						cdc_status <= cdc_status & ~BUSY_BIT & ~MSG_BIT & ~CD_BIT & ~IO_BIT & ~REQ_BIT;
-						bram_lock <= bram_lock & ~8'h20; // CDIRQ(IRQ_8000, PCECD_Drive_IRQ_DATA_TRANSFER_DONE);
-						current_phase <= PHASE_BUS_FREE;
-					end
-					PHASE_DATA_IN: begin
-						//$display ("PHASE_DATA_IN");
-						cdc_status <= cdc_status | BUSY_BIT | IO_BIT & ~MSG_BIT & ~CD_BIT & ~REQ_BIT;
-						current_phase <= PHASE_DATA_IN;
-					end
-					PHASE_STATUS: begin
-						//$display ("PHASE_STATUS");
-						cdc_status <= cdc_status | BUSY_BIT | CD_BIT | IO_BIT | REQ_BIT & ~MSG_BIT;
-						current_phase <= PHASE_STATUS;
-					end
-					PHASE_MESSAGE_IN: begin
-						//$display ("PHASE_MESSAGE_IN");
-						cdc_status <= cdc_status | BUSY_BIT | MSG_BIT | CD_BIT | IO_BIT | REQ_BIT;
-						current_phase <= PHASE_MESSAGE_IN;
-					end
-					PHASE_COMMAND: begin
-						//$display ("PHASE_COMMAND");
-						cdc_status <= cdc_status | BUSY_BIT | CD_BIT | REQ_BIT & ~IO_BIT & ~MSG_BIT;
-						current_phase <= PHASE_COMMAND;
-					end
 				endcase
-				bus_phase_changed <= 0;
-			end // End current_phase != phase
-		end // End bus_phase_changed
+			end // End SCSI_Think();
 
-		if (SCSI_SEL_flipflop_latch) begin
-			if (SCSI_SEL_flipflop) begin
-				//$display("**** LATCH LAST ******");
-				// This one will get executed last
-				SCSI_SEL <= 0;
-				SCSI_think <= 1;
-				// Reset the flip flop and latch
-				SCSI_SEL_flipflop <= 0;
-				SCSI_SEL_flipflop_latch <= 0;
-			end else begin
-				//$display("**** LATCH FIRST ******");
-				// This one will get executed first
-				SCSI_SEL <= 1;
-				SCSI_think <= 1;
-				SCSI_SEL_flipflop <= 1;
-			end
-		end
-	end // End else
+			// This might live in a separate module that we instantiate here?
+			if (bus_phase_changed) begin
+				$display("Phase Changed: %h", phase);
+				if (current_phase != phase) begin
+					case (phase)
+						PHASE_BUS_FREE: begin
+							$display ("PHASE_BUS_FREE");
+							cdc_status <= cdc_status & ~BUSY_BIT & ~MSG_BIT & ~CD_BIT & ~IO_BIT & ~REQ_BIT;
+							bram_lock <= bram_lock & ~8'h20; // CDIRQ(IRQ_8000, PCECD_Drive_IRQ_DATA_TRANSFER_DONE);
+							current_phase <= PHASE_BUS_FREE;
+						end
+						PHASE_DATA_IN: begin
+							//$display ("PHASE_DATA_IN");
+							cdc_status <= cdc_status | BUSY_BIT | IO_BIT & ~MSG_BIT & ~CD_BIT & ~REQ_BIT;
+							current_phase <= PHASE_DATA_IN;
+						end
+						PHASE_STATUS: begin
+							//$display ("PHASE_STATUS");
+							cdc_status <= cdc_status | BUSY_BIT | CD_BIT | IO_BIT | REQ_BIT & ~MSG_BIT;
+							current_phase <= PHASE_STATUS;
+						end
+						PHASE_MESSAGE_IN: begin
+							//$display ("PHASE_MESSAGE_IN");
+							cdc_status <= cdc_status | BUSY_BIT | MSG_BIT | CD_BIT | IO_BIT | REQ_BIT;
+							current_phase <= PHASE_MESSAGE_IN;
+						end
+						PHASE_COMMAND: begin
+							$display ("PHASE_COMMAND");
+							cdc_status <= cdc_status | BUSY_BIT | CD_BIT | REQ_BIT & ~IO_BIT & ~MSG_BIT;
+							current_phase <= PHASE_COMMAND;
+						end
+					endcase
+					bus_phase_changed <= 0;
+				end // End current_phase != phase
+			end // End bus_phase_changed
+
+		end // end if sel - and our main logic
+	end // end else main
+end // end always
+
+
 endmodule
