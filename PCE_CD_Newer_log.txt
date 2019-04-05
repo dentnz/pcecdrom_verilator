@@ -20,15 +20,15 @@ PCE_CD_IRQ_BRAM Cleared
 17)Read from Reg: 0x0  CDC_STAT         Data: 0xd1  [7]BUSY [6]REQ  [4]CD
 18)Read from Reg: 0x0  CDC_STAT         Data: 0xd1  [7]BUSY [6]REQ  [4]CD
 19)Write to Reg:  0x1  CDC_CMD          Data: 0x00
-Read from Reg: 0x2  INT_MASK         Data: 0x00
-Write to Reg:  0x2  INT_MASK         Data: 0x80  [7]ACK!
-Read from Reg: 0x0  CDC_STAT         Data: 0x91  [7]BUSY [4]CD
-Read from Reg: 0x2  INT_MASK         Data: 0x80  [7]ACK!
-Write to Reg:  0x2  INT_MASK         Data: 0x00
+20)Read from Reg: 0x2  INT_MASK         Data: 0x00
+21)Write to Reg:  0x2  INT_MASK         Data: 0x80  [7]ACK!
+22)Read from Reg: 0x0  CDC_STAT         Data: 0x91  [7]BUSY [4]CD
+23)Read from Reg: 0x2  INT_MASK         Data: 0x80  [7]ACK!
+24)Write to Reg:  0x2  INT_MASK         Data: 0x00
 0x00 TEST_UNIT_READY (6)
-Read from Reg: 0x0  CDC_STAT         Data: 0xd1  [7]BUSY [6]REQ  [4]CD
-Write to Reg:  0x1  CDC_CMD          Data: 0x00
-Read from Reg: 0x2  INT_MASK         Data: 0x00
+25)Read from Reg: 0x0  CDC_STAT         Data: 0xd1  [7]BUSY [6]REQ  [4]CD
+26)Write to Reg:  0x1  CDC_CMD          Data: 0x00
+27)Read from Reg: 0x2  INT_MASK         Data: 0x00
 Write to Reg:  0x2  INT_MASK         Data: 0x80  [7]ACK!
 Read from Reg: 0x0  CDC_STAT         Data: 0x91  [7]BUSY [4]CD
 Read from Reg: 0x2  INT_MASK         Data: 0x80  [7]ACK!
