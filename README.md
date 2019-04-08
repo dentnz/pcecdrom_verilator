@@ -72,15 +72,12 @@ Write to reg 0x01, value 0x00
 Read 0x2. dout = 0x00
 ```
 
-## Plan
+## Methodology
 
-Plan has changed, now using this code here as the guide for implementing this stuff:
+ElectronAsh connected a real PCE Core Grafx to a DE1 in a previous project. This allowed him to
+deploy our code into a FPGA for testing against real hardware. He ironed out the REQ/ACK process
+and eventually got the PCE to send the first command bytes (TEST UNIT READY (6)).
 
-https://github.com/TASVideos/BizHawk/blob/master/BizHawk.Emulation.Cores/Consoles/PC%20Engine/PCEngine.TurboCD.cs
-
-## Notes
-
-- When disc is present:
-
-https://github.com/kallisti5/huexpress/blob/b91fd8e30d5898c8ca9c6c749a5f5106a03e22d0/src/engine/pcecd.c#L638
-
+Next, Ash moved the code into the existing TGFX16 core. He proceeded to add more code, in 
+particular, he introduced more state machines and a clock divider to ensure better timing with 
+the register updates.

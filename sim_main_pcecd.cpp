@@ -5,17 +5,16 @@
 #include <iostream>
 
 void pcecd_read(char addr, Vpcecd_top* pcecd) {
-    pcecd->addr = addr; pcecd->sel = 1; pcecd->rd = 1; pcecd->wr = 0;
+    pcecd->ADDR = addr; pcecd->CS_N = 0; pcecd->RD_N = 1; pcecd->WR_N = 0;
 }
 
 void pcecd_write(char addr, char din, Vpcecd_top* pcecd) {
-    pcecd->addr = addr; pcecd->din = din; pcecd->sel = 1; pcecd->rd = 0; pcecd->wr = 1;
+    pcecd->ADDR = addr; pcecd->DIN = din; pcecd->CS_N = 0; pcecd->RD_N = 0; pcecd->WR_N = 1;
 }
 
 // Here we can do specific things on certain clock ticks
 void handlePositiveEdgeClock(int tick, Vpcecd_top* pcecd) {
-    // This could be something smarter, but for now... we only care about a few clock cycles
-    pcecd->sel = 0;
+    pcecd->CS_N = 1;
     if (tick == 1) {
         printf("1) Read from Reg: 0x4  CD_RESET         Expecting: 0x00\n");
         pcecd_read(0x04, pcecd);
@@ -139,15 +138,15 @@ int main(int argc, char **argv, char **env) {
         char input;
         cin>>input;
         // Toggle the clock - tick tock
-        pcecd->clk = 0;
+        pcecd->CLOCK = 0;
         pcecd->eval();
         // tick
-        pcecd->clk = 1;
+        pcecd->CLOCK = 1;
         handlePositiveEdgeClock(tick, pcecd);
         pcecd->eval();
         //logCdRegisters(pcecd);
         // tock
-        pcecd->clk = 0;
+        pcecd->CLOCK = 0;
         pcecd->eval();
     }
 

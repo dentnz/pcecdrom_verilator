@@ -44,6 +44,7 @@ reg data_buffer_wr_force;
 
 wire [7:0] data_buffer_dout;
 
+`ifndef verilator
 cd_data_buffer	cd_data_buffer_inst (
 	.clock ( CLOCK ),
 
@@ -53,6 +54,7 @@ cd_data_buffer	cd_data_buffer_inst (
 	
 	.q ( data_buffer_dout )
 );
+`endif
 
 // Using this rather than the main data buffer for DIR info for now. ElectronAsh.
 reg [7:0] dir_buffer [0:15];
@@ -73,6 +75,7 @@ wire audio_fifo_wr = !audio_fifo_full && sd_ack && sd_buff_wr && cdda_play;
 wire audio_fifo_empty;
 wire audio_fifo_rd = !audio_fifo_empty && (audio_clk_div==0) && cdda_play;
 
+`ifndef verilator
 cd_audio_fifo	cd_audio_fifo_inst (
 	.aclr ( audio_fifo_reset ),
 
@@ -86,6 +89,7 @@ cd_audio_fifo	cd_audio_fifo_inst (
 	.rdempty ( audio_fifo_empty ),
 	.q ( cd_audio_l )
 );
+`endif
 
 //TODO: add hps "channel" to read/write from save ram
 
@@ -93,9 +97,16 @@ reg [7:0] cd_command_buffer [0:15]/*synthesis noprune*/;
 reg [3:0] cd_command_buffer_pos = 0;
 
 // Clock stuff
+`ifndef verilator
 reg [4:0] clock_divider;
 always @(posedge CLOCK) clock_divider <= clock_divider + 1;
 (*keep*)wire slow_clock = clock_divider==0;
+`endif
+
+`ifdef verilator
+// Verilator: slow clock is every clock
+wire slow_clock = 1;
+`endif
 
 //wire [7:0] gp_ram_do,adpcm_ram_do,save_ram_do;
 
@@ -123,7 +134,7 @@ always @(posedge CLOCK) clock_divider <= clock_divider + 1;
 // 	.dout(adpcm_ram_do)
 // );
 
- //- 2K battery backed RAM for save game data and high scores
+//- 2K battery backed RAM for save game data and high scores
 // generic_tpram #(11,8) save_ram(
 // 	.clk_a(CLOCK),
 // 	.rst_a(RESET),
@@ -178,11 +189,11 @@ always_comb begin
 end
 
 // CD Interface Register 0x00 - CDC status
-	// x--- ---- busy signal
-	// -x-- ---- request signal
-	// --x- ---- msg bit
-	// ---x ---- cd signal
-	// ---- x--- i/o signal
+// x--- ---- busy signal
+// -x-- ---- request signal
+// --x- ---- msg bit
+// ---x ---- cd signal
+// ---- x--- i/o signal
 localparam BUSY_BIT = 8'h80;
 localparam REQ_BIT  = 8'h40;
 localparam MSG_BIT  = 8'h20;
@@ -255,7 +266,6 @@ reg SCSI_BIT0;
 //
 // Which is why MAME, bizhawk, and other emulators don't need to have the 0x81 in command parsing table.
 // Those emulators just set the SCSI_SEL bit whenever CDC_STAT gets written to (and they also clear the CD transfer IRQ flags).
-//
 
 reg [3:0] packet_bytecount;
 reg [3:0] status_state;
@@ -280,7 +290,6 @@ reg WR_N_2;
 (*keep*)wire CDR_RD_N_FALLING = (!RD_N_1 && RD_N_2);
 (*keep*)wire CDR_WR_N_FALLING = (!WR_N_1 && WR_N_2);
 
-//TODO: a pcecd_drive module should be probably added
 always_ff @(posedge CLOCK) begin
 	if (RESET) begin
 		SCSI_BSY  <= 1'b0;
@@ -315,7 +324,7 @@ always_ff @(posedge CLOCK) begin
 		adpcm_playback_rate   <= 8'b0;
 		adpcm_fade_timer      <= 8'b0;
 
-		phase         <= PHASE_BUS_FREE;
+		phase                 <= PHASE_BUS_FREE;
 
 		cd_command_buffer_pos <= 4'd0;
 
@@ -341,7 +350,7 @@ always_ff @(posedge CLOCK) begin
 		data_buffer_size <= 4'd0;
 		data_buffer_pos <= 0;
 		data_buffer_wr_ena <= 0;
-		data_buffer_wr_force = 0;
+		data_buffer_wr_force <= 0;
 
 		dir_data_out <= 0;
 
@@ -455,12 +464,11 @@ always_ff @(posedge CLOCK) begin
 						// The MAME code normally assumes there is only ONE drive on the bus.
 						// So no real point checking to see if the ID matches before setting SCSI_SEL.
 						// But we could add a check for seeing 0x81 written to CDC_STAT (or CDC_CMD?) later on.
-
-						if (DIN==8'h81) begin		// Selection "command", AFAIK. (bitwise OR of the PCE and drive SCSI IDs).
+						if (DIN==8'h81) begin			// Selection "command", AFAIK. (bitwise OR of the PCE and drive SCSI IDs).
 							SCSI_BIT2 <= DIN[2];		// Lower three bits are probably the drive's SCSI ID.
 							SCSI_BIT1 <= DIN[1];		// Which will normally be set to 0b00000001 (bit 0 set == SCSI ID 0).
 							SCSI_BIT0 <= DIN[0];
-							SCSI_SEL <= 1;				// Select!
+							SCSI_SEL <= 1;					// Select!
 							status_state <= 0;
 							message_state <= 0;
 							command_state <= 0;
@@ -482,9 +490,8 @@ always_ff @(posedge CLOCK) begin
 					end
 					8'h02: begin	// 0x1802 INT_MASK
 						adpcm_control <= DIN;
-						// Set ACK signal to contents of the interrupt registers 7th bit? A full command will have this bit high
+						// Set ACK signal to contents of the interrupt registers 7th bit. A full command will have this bit high
 						SCSI_ACK <= DIN[7];
-						//SCSI_think <= 1;
 						irq2_assert <= (DIN & bram_lock & 8'h7C) != 0; // RefreshIRQ2(); ... using din here
 					end
 					8'h03: begin	// 0x1803 BRAM_LOCK
@@ -494,7 +501,6 @@ always_ff @(posedge CLOCK) begin
 						cd_reset <= DIN;
 						// Set RST signal to contents of RST registers 2nd bit
 						SCSI_RST <= (DIN & 8'h02) != 0;
-						//SCSI_think <= 1;
 						status_state <= 0;
 						message_state <= 0;
 						command_state <= 0;
@@ -510,7 +516,7 @@ always_ff @(posedge CLOCK) begin
 							phase <= PHASE_BUS_FREE;
 							cd_command_buffer_pos <= 4'd0;
 							data_buffer_wr_ena <= 0;
-							data_buffer_wr_force = 0;
+							data_buffer_wr_force <= 0;
 							bram_lock <= bram_lock & 8'h8F; // CdIoPorts[3] &= 0x8F;
 							irq2_assert <= (adpcm_control & bram_lock & 8'h7C) != 0; // RefreshIRQ2();
 						end
@@ -561,20 +567,17 @@ always_ff @(posedge CLOCK) begin
 				SCSI_BIT2 <= 1'b0;
 				SCSI_BIT1 <= 1'b0;
 				SCSI_BIT0 <= 1'b0;
-
 				SCSI_ACK <= 1'b0;
 				SCSI_RST <= 1'b0;
-
 				SCSI_SEL <= 1'b0;
 
 				cd_command_buffer_pos <= 4'd0;
-				
 				// @todo Clear the command buffer
 				// @todo Stop all reads
 				// @todo Stop all audio
 			end
 
-			// Phase Changes stuff
+			// Phase Change stuff
 			if (!SCSI_RST) begin
 				if (phase!=old_phase) begin
 					case (phase)
@@ -640,24 +643,24 @@ always_ff @(posedge CLOCK) begin
 						SCSI_REQ <= 1'b0;					// Clear the REQ.
 						command_state <= command_state + 1;
 					end
-					
+
 					1: if (!SCSI_ACK) begin
 						//SCSI_REQ <= 1'b1;
 						command_state <= command_state + 1;
 					end
-					
+
 					2: begin	// PCE should have written to CDC_CMD at this point!
 						cd_command_buffer[cd_command_buffer_pos] <= cdc_databus;	// Grab the packet byte!
 						cd_command_buffer_pos <= cd_command_buffer_pos + 1;
 						command_state <= command_state + 1;
 					end
-					
+
 					3: begin
 						if (cd_command_buffer_pos < packet_bytecount) begin	// More bytes left to grab...
 							SCSI_REQ <= 1;
 							command_state <= 0;
 						end
-						else begin						// Else...
+						else begin							// Else...
 							SCSI_REQ <= 0;				// Stop REQuesting bytes!
 							cd_command_buffer_pos <= 0;
 							read_state <= 0;
@@ -669,7 +672,7 @@ always_ff @(posedge CLOCK) begin
 					default:;
 					endcase
 				end
-				
+
 				if (SCSI_SEL && phase==PHASE_STATUS) begin
 					case (status_state)
 					0: if (SCSI_ACK) begin
@@ -677,22 +680,22 @@ always_ff @(posedge CLOCK) begin
 						SCSI_REQ <= 1'b0;					// Clear the REQ.
 						status_state <= status_state + 1;
 					end
-					
+
 					1: if (!SCSI_ACK) begin
 						//SCSI_REQ <= 1'b1;
 						status_state <= status_state + 1;
 					end
-					
+
 					2: /*if (!CS_N && CDR_RD_N_FALLING && ADDR[7:0]==8'h00)*/ begin	// Wait for PCE to read from CDC_STAT.
 						cd_command_buffer_pos <= 0;
-						cdc_databus <= 8'h00;		// Returning 0x00 for the "message" byte atm.
+						cdc_databus <= 8'h00;				// Returning 0x00 for the "message" byte atm.
 						phase <= PHASE_MESSAGE_IN;	// TESTING! ElectronAsh.
 					end
 
 					default:;
 					endcase
 				end
-				
+
 				if (SCSI_SEL && phase==PHASE_MESSAGE_IN) begin
 					case (message_state)
 					0: if (SCSI_ACK) begin
@@ -700,20 +703,20 @@ always_ff @(posedge CLOCK) begin
 						SCSI_REQ <= 1'b0;					// Clear the REQ.
 						message_state <= message_state + 1;
 					end
-					
+
 					1: if (!SCSI_ACK) begin
 						message_state <= message_state + 1;
 					end
-					
+
 					2: begin
 						cd_command_buffer_pos <= 0;
 						phase <= PHASE_BUS_FREE;
 					end
-					
+
 					default:;
 					endcase
 				end
-				
+
 				if (SCSI_SEL && phase==PHASE_DATA_IN) begin
 					if (dir_data_out) cdc_databus <= dir_buffer[data_buffer_pos[3:0]];
 					else cdc_databus <= data_buffer_dout;
@@ -723,32 +726,32 @@ always_ff @(posedge CLOCK) begin
 						SCSI_REQ <= 1'b0;					// Clear the REQ.
 						data_state <= data_state + 1;
 					end
-					
+
 					1: if (!SCSI_ACK) begin
 						data_state <= data_state + 1;
 						data_buffer_pos <= data_buffer_pos + 1;
 					end
-					
+
 					2: begin
 						if (data_buffer_pos < data_buffer_size) begin
-							SCSI_REQ <= 1'b1;	// More bytes left to SEND to PCE.
+							SCSI_REQ <= 1'b1;				// More bytes left to SEND to PCE.
 							data_state <= 0;
 						end
-						else begin						// Else, done!
+						else begin								// Else, done!
 							dir_data_out <= 0;
 							data_buffer_pos <= 0;
-							cdc_databus <= 8'h00;	// Returning 0x00 for the "status" byte atm.
+							cdc_databus <= 8'h00;		// Returning 0x00 for the "status" byte atm.
 							// TODO: set IRQ TRANSFER DONE Interrupt Enable bit here! (I think).
 							phase <= PHASE_STATUS;	// TESTING! ElectronAsh.
 						end
 					end
-					
+
 					default:;
 					endcase
-				end
-		end // end if slow_clock.
-			
-		// Command parser
+				end // End
+			end // end if slow_clock.
+
+		// Command parser state machine
 		if (parse_command) begin
 			case (cd_command_buffer[0])
 			8'h00: begin	// TEST_UNIT_READY (6).
@@ -757,40 +760,39 @@ always_ff @(posedge CLOCK) begin
 				cdc_databus <= 8'h00;
 				phase <= PHASE_STATUS;
 			end
-			
+
 			8'h08: begin	// READ (6).
 				case (read_state)
 				0: begin
 					//frame <= {cd_command_buffer[1][4:0], cd_command_buffer[2], cd_command_buffer[3]};
 					frame <= {cd_command_buffer[1][4:0], cd_command_buffer[2], cd_command_buffer[3]} - 21'h000f32;	// Trying a 2048-byte ISO.
 					frame_count <= cd_command_buffer[4];
-					
+
 					// VHD / SD loading works in 512-byte sector blocks.
 					// For save backups in the tg16 core, it uses a 16-bit width, so the buffers
 					// are 256 WORDS.
 					// We'll need to request multiple 512-byte sectors for each of our 2048-byte CD ISO sectors.				
 					//sd_lba <= (({cd_command_buffer[1][4:0], cd_command_buffer[2], cd_command_buffer[3]} - 225) * 2352) / 512;
 					sd_lba <= ({cd_command_buffer[1][4:0], cd_command_buffer[2], cd_command_buffer[3]} - 21'h000f32) * 4;	// Trying a 2048-byte ISO.
-					
+
 					sd_sector_count <= 0;
-					
+
 					sd_rd <= 1'b1;
 					data_buffer_pos <= 0;
 					data_buffer_wr_ena <= 1;
 					read_state <= read_state + 1;
 				end
-				
-				
+
 				// This is a bit of a kludge atm, due to the HPS using a 16-bit bus for cart ROM / VHD loading... ElectronAsh.
 				1: if (sd_ack && sd_buff_wr) begin
-					sd_rd <= 1'b0;								// Need to clear sd_rd as soon as sd_ack goes high, apparently.
+					sd_rd <= 1'b0;										// Need to clear sd_rd as soon as sd_ack goes high, apparently.
 					data_buffer_pos <= data_buffer_pos + 1;
-					data_buffer_wr_force = 1;				// Force a write to the data buffer on the NEXT clock, for the upper data byte (16-bit HPS bus).
+					data_buffer_wr_force <= 1;				// Force a write to the data buffer on the NEXT clock, for the upper data byte (16-bit HPS bus).
 					read_state <= read_state + 1;			// (the lower data byte will get written directly by the HPS via sd_wr.)
 				end
-				
+
 				2: begin
-					data_buffer_wr_force = 0;
+					data_buffer_wr_force <= 0;
 					data_buffer_pos <= data_buffer_pos + 1;
 
 					// Check for sd_ack low, after each 512-byte VHD / SD sector is transferred into the buffer.
@@ -801,12 +803,12 @@ always_ff @(posedge CLOCK) begin
 					end
 					else read_state <= read_state - 1;	// Else, loop back!
 				end
-				
+
 				3: begin
 					if (sd_sector_count < frame_count*4) begin
 						read_state <= 1;
 					end
-					else begin												// Else, done!
+					else begin													// Else, done!
 						sd_rd <= 1'b0;										// Stop requesting SD (VHD) sectors from the HPS!
 						data_buffer_size <= (frame_count*4)*512;
 						data_buffer_wr_ena <= 0;
@@ -818,21 +820,21 @@ always_ff @(posedge CLOCK) begin
 				default:;
 				endcase				
 			end
-			
+
 			8'hD8: begin	// NEC_SET_AUDIO_START_POS (10).
-			
+
 			end
 			8'hD9: begin	// NEC_SET_AUDIO_STOP_POS (10).
-			
+
 			end
 			8'hDA: begin	// NEC_PAUSE (10).
-			
+
 			end
 			8'hDD: begin	// NEC_GET_SUBQ (10).
-			
+
 			end
 			8'hDE: begin	// NEC_GET_DIR_INFO (10).
-			
+
 				case (cd_command_buffer[1])
 				8'h00: begin	// Get the first and last track numbers.
 					dir_buffer[0] <= 8'h01;	// Rondo - First track (BCD).
@@ -843,7 +845,7 @@ always_ff @(posedge CLOCK) begin
 					parse_command <= 0;
 					phase <= PHASE_DATA_IN;
 				end
-				
+
 				8'h01: begin	// Get total disk size in MSF.
 					dir_buffer[0] <= 8'h49;	// Rondo - Minutes = 0x49 (73).
 					dir_buffer[1] <= 8'h09;	// Rondo - Seconds = 0x09 (9).
@@ -854,7 +856,7 @@ always_ff @(posedge CLOCK) begin
 					parse_command <= 0;
 					phase <= PHASE_DATA_IN;
 				end
-				
+
 				8'h02: begin	// Get track information.
 					if (cd_command_buffer[2] == 8'hAA) begin
 						// MAME...
@@ -873,7 +875,7 @@ always_ff @(posedge CLOCK) begin
 						// m_data_buffer[3] = (toc->tracks[track-1].trktype == CD_TRACK_AUDIO) ? 0x00 : 0x04;
 						//dir_buffer[3] <= 8'h00;
 					end
-					
+
 					if (cd_command_buffer[2]==8'h01) begin
 						dir_buffer[0] <= 8'h00;	// M
 						dir_buffer[1] <= 8'h02;	// S
@@ -886,7 +888,7 @@ always_ff @(posedge CLOCK) begin
 						dir_buffer[2] <= 8'h65;	// F
 						dir_buffer[3] <= 8'h04;	// Track type. (Rondo, track 2, DATA)
 					end
-					
+
 					data_buffer_size <= 4;
 					data_buffer_pos <= 0;
 					dir_data_out <= 1;
@@ -897,7 +899,7 @@ always_ff @(posedge CLOCK) begin
 				endcase
 			end
 			8'hFF: begin	// END_OF_LIST (1).
-			
+
 			end
 			default:;	// Unknown command.
 			endcase
